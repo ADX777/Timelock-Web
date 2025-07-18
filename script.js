@@ -77,16 +77,15 @@ async function encrypt() {
   const note = noteInput.value;
   const coin = document.getElementById("coinInput").value.toUpperCase();
   const priceRaw = document.getElementById("targetPrice").value;
-  const price = parseFloat(priceRaw.replace(/,/g, ""));
-  if (isNaN(price) || price <= 0) {
-    document.getElementById("targetPrice").style.border = "2px solid red";
-    alert("❌ Giá kỳ vọng không hợp lệ.");
-    return false;
-  } else {
-    document.getElementById("targetPrice").style.border = "";
-  }
-
-  const time = document.getElementById("unlockTime").value;
+const cleaned = priceRaw.replace(/,/g, "");
+if (!/^\d+(\.\d+)?$/.test(cleaned)) {
+  alert("❌ Giá kỳ vọng không hợp lệ.");
+  document.getElementById("targetPrice").style.border = "2px solid red";
+  return false;
+}
+const price = parseFloat(cleaned);
+document.getElementById("targetPrice").style.border = "";
+const time = document.getElementById("unlockTime").value;
   const now = await getBinanceTime();
   if (!now || new Date(time) < now) {
     noteInput.style.backgroundColor = "#ffcccc";
