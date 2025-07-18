@@ -76,6 +76,15 @@ async function encrypt() {
   const note = noteInput.value;
   const coin = document.getElementById("coinInput").value.toUpperCase();
   const price = document.getElementById("targetPrice").value;
+  const parsedPrice = parseFloat(price);
+  if (!/^\d+(\.\d+)?$/.test(price) || isNaN(parsedPrice) || parsedPrice <= 0) {
+    document.getElementById("targetPrice").style.border = "2px solid red";
+    alert("❌ Giá kỳ vọng không hợp lệ. Vui lòng nhập một số dương.");
+    return;
+  } else {
+    document.getElementById("targetPrice").style.border = "";
+  }
+
   if (isNaN(price) || parseFloat(price) <= 0) {
     document.getElementById("targetPrice").style.border = "2px solid red";
     alert("❌ Giá kỳ vọng không hợp lệ. Vui lòng nhập số.");
