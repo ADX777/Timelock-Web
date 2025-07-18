@@ -43,7 +43,7 @@ async function fetchPrice() {
     const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${coin}`);
     const data = await res.json();
     document.getElementById("livePrice").textContent = data.price
-      ? `💹 Giá hiện tại: ${parseFloat(data.price).toFixed(2)} USDT (Binance)`
+      ? `💹 Giá hiện tại: ${parseFloat(data.price).toFixed(2)} USDT`
       : "❌ Không lấy được giá từ Binance.";
   } catch {
     document.getElementById("livePrice").textContent = "⚠️ Lỗi kết nối với Binance.";
