@@ -118,20 +118,33 @@ async function encrypt() {
   // Tính số ngày khóa
   const diffMs = new Date(time) - now;
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const paymentAmount = (diffDays * 0.5).toFixed(2);
 
-  fetch("https://formspree.io/f/xyzpzezy", {
+  // Lấy giá coin hiện tại
+  let currentPrice = "";
+  try {
+    const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${coin}`);
+    const data = await res.json();
+    currentPrice = parseFloat(data.price).toFixed(2);
+  } catch {
+    currentPrice = "❓ Không lấy được";
+  }
+
+  // Gửi cảnh báo Telegram
+  fetch("https://timelockbot-production.up.railway.app/notify", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Accept": "application/json"
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      email: "loinguyenhp95@gmail.com",
-      message: `Khách vừa mã hóa ghi chú mới:\nCoin: ${coin}\nGiá kỳ vọng: ${price}\nThời gian khóa: ${diffDays} ngày`
+      coin,
+      price,
+      time,
+      days: diffDays,
+      amount: paymentAmount,
+      current: currentPrice
     }),
   }).then(res => {
-    alert(res.ok ? "✅ Đã gửi cảnh báo email thành công!" : "⚠️ Gửi cảnh báo email thất bại.");
-  }).catch(() => alert("⚠️ Lỗi gửi cảnh báo email."));
+    alert(res.ok ? "✅ Đã gửi cảnh báo Telegram!" : "⚠️ Gửi cảnh báo thất bại.");
+  }).catch(() => alert("⚠️ Lỗi gửi cảnh báo đến Telegram."));
 }
 
 async function decrypt() {
@@ -222,7 +235,8 @@ function updateVisualConditions() {
     html += `<p>⏳ Còn lại: <strong>${hours}h ${minutes}m ${seconds}s</strong></p>`;
   }
 
-  document.getElementById("conditionsDisplay").innerHTML = html;
+  const display = document.getElementById("conditionsDisplay");
+  if (display) display.innerHTML = html;
 }
 
 setInterval(updateVisualConditions, 1000);
