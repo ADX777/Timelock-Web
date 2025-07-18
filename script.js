@@ -260,12 +260,11 @@ async function showPaymentPopup() {
   const amount = (days * 0.5).toFixed(2);
   document.getElementById("paymentAmount").textContent = `${amount} USDT`;
 
+  // ✅ Hiển thị QR ngay
   document.getElementById("paymentOverlay").style.display = "flex";
 
-  setTimeout(() => {
-    document.getElementById("paymentOverlay").style.display = "none";
-    sendTelegramAlert();
-  }, 8000);
+  // ✅ Gửi Telegram riêng, nếu lỗi cũng không ảnh hưởng QR
+  sendTelegramAlert();
 }
 
 function closePaymentPopup() {
