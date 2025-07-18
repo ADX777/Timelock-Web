@@ -133,11 +133,11 @@ async function encrypt() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       coin,
-      price,
-      time,
-      days: diffDays,
-      amount: paymentAmount,
-      current: currentPrice
+      targetPrice: price,
+      unlockTime: time,
+      daysLocked: diffDays,
+      amountToPay: paymentAmount,
+      currentPrice: currentPrice
     }),
   }).then(res => {
     alert(res.ok ? "✅ Đã gửi cảnh báo Telegram!" : "⚠️ Gửi cảnh báo thất bại.");
