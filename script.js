@@ -80,7 +80,6 @@ async function sha256Bytes(msg) {
   const buffer = new TextEncoder().encode(msg);
   return new Uint8Array(await crypto.subtle.digest("SHA-256", buffer));
 }
-
 async function encrypt() {
   const noteInput = document.getElementById("noteInput");
   const note = noteInput.value;
@@ -95,12 +94,6 @@ async function encrypt() {
     return;
   }
   noteInput.style.backgroundColor = "";
-
-  if (!/^\d+(\.\d{1,8})?$/.test(price)) {
-    alert("❌ Giá kỳ vọng không hợp lệ. Chỉ được nhập số và dấu chấm.");
-    document.getElementById("targetPrice").style.backgroundColor = "#ffcccc";
-    return;
-  }
 
   const encoder = new TextEncoder();
   const iv1 = crypto.getRandomValues(new Uint8Array(16));
@@ -130,19 +123,6 @@ async function encrypt() {
   payload.sig = await sha256(JSON.stringify(payload));
   document.getElementById("encryptedOutput").value = `ENC[${btoa(JSON.stringify(payload))}]`;
 }
-
-document.getElementById("targetPrice").addEventListener("input", function () {
-  let value = this.value;
-  value = value.replace(/[^0-9.]/g, '');
-  if (value.startsWith('.')) value = value.slice(1);
-  const parts = value.split('.');
-  if (parts.length > 2) value = parts[0] + '.' + parts[1];
-  this.value = value;
-
-  const isValid = /^\d+(\.\d{0,8})?$/.test(value);
-  this.style.backgroundColor = isValid || value === "" ? "" : "#ffcccc";
-});
-
 
 async function decrypt() {
   const input = document.getElementById("decryptionInput").value.trim();
@@ -238,6 +218,7 @@ function updateVisualConditions() {
 
   document.getElementById("conditionsDisplay").innerHTML = html;
 }
+
 setInterval(updateVisualConditions, 1000);
 
 // Gửi notify lên Telegram bot, có alert dễ test trên iPhone
