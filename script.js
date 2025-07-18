@@ -17,6 +17,7 @@ function suggestCoins() {
   const input = document.getElementById("coinInput").value.toUpperCase();
   const suggestions = document.getElementById("coinSuggestions");
   suggestions.innerHTML = "";
+
   if (!input) return;
 
   const matches = allCoins.filter(c => c.startsWith(input)).slice(0, 10);
@@ -60,6 +61,15 @@ async function getBinanceTime() {
   }
 }
 
+async function getCoinGeckoTime() {
+  try {
+    const res = await fetch("https://api.coingecko.com/api/v3/ping");
+    return new Date();
+  } catch {
+    return null;
+  }
+}
+
 async function sha256(msg) {
   const buffer = new TextEncoder().encode(msg);
   const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
@@ -85,6 +95,12 @@ async function encrypt() {
     return;
   }
   noteInput.style.backgroundColor = "";
+
+  if (!/^\d+(\.\d{1,8})?$/.test(price)) {
+    alert("❌ Giá kỳ vọng không hợp lệ. Chỉ được nhập số và dấu chấm.");
+    document.getElementById("targetPrice").style.backgroundColor = "#ffcccc";
+    return;
+  }
 
   const encoder = new TextEncoder();
   const iv1 = crypto.getRandomValues(new Uint8Array(16));
@@ -112,37 +128,21 @@ async function encrypt() {
   };
 
   payload.sig = await sha256(JSON.stringify(payload));
-  const encryptedText = `ENC[${btoa(JSON.stringify(payload))}]`;
-  document.getElementById("encryptedOutput").value = encryptedText;
-
-  const diffMs = new Date(time) - now;
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-  const paymentAmount = (diffDays * 0.5).toFixed(2);
-
-  let currentPrice = "";
-  try {
-    const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${coin}`);
-    const data = await res.json();
-    currentPrice = parseFloat(data.price).toFixed(2);
-  } catch {
-    currentPrice = "❓ Không lấy được";
-  }
-
-  fetch("https://timelocknewbot-production.up.railway.app/notify", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      coin,
-      targetPrice: price,
-      unlockTime: time,
-      daysLocked: diffDays,
-      amountToPay: paymentAmount,
-      currentPrice: currentPrice
-    }),
-  }).then(res => {
-    alert(res.ok ? "✅ Đã gửi cảnh báo Telegram!" : "⚠️ Gửi cảnh báo thất bại.");
-  }).catch(() => alert("⚠️ Lỗi gửi cảnh báo đến Telegram."));
+  document.getElementById("encryptedOutput").value = `ENC[${btoa(JSON.stringify(payload))}]`;
 }
+
+document.getElementById("targetPrice").addEventListener("input", function () {
+  let value = this.value;
+  value = value.replace(/[^0-9.]/g, '');
+  if (value.startsWith('.')) value = value.slice(1);
+  const parts = value.split('.');
+  if (parts.length > 2) value = parts[0] + '.' + parts[1];
+  this.value = value;
+
+  const isValid = /^\d+(\.\d{0,8})?$/.test(value);
+  this.style.backgroundColor = isValid || value === "" ? "" : "#ffcccc";
+});
+
 
 async function decrypt() {
   const input = document.getElementById("decryptionInput").value.trim();
@@ -169,7 +169,9 @@ async function decrypt() {
     } catch {}
 
     const binanceTime = await getBinanceTime();
-    if (!binanceTime || Math.abs(binanceTime - new Date()) > 30 * 60 * 1000) {
+    const geckoTime = await getCoinGeckoTime();
+    const delta = Math.abs(binanceTime - geckoTime);
+    if (!binanceTime || !geckoTime || delta > 30 * 60 * 1000) {
       document.getElementById("decryptedResult").textContent = "❌ Không xác thực được thời gian từ API.";
       return;
     }
@@ -213,10 +215,12 @@ function copyDecrypted() {
   navigator.clipboard.writeText(text).then(() => alert("✅ Đã sao chép ghi chú!"));
 }
 
+// 👇 Giao diện trực quan
 function updateVisualConditions() {
   const coin = document.getElementById("coinInput").value.toUpperCase();
   const price = parseFloat(document.getElementById("targetPrice").value);
   const time = new Date(document.getElementById("unlockTime").value);
+
   let html = "";
 
   if (coin && !isNaN(price)) {
@@ -232,8 +236,29 @@ function updateVisualConditions() {
     html += `<p>⏳ Còn lại: <strong>${hours}h ${minutes}m ${seconds}s</strong></p>`;
   }
 
-  const display = document.getElementById("conditionsDisplay");
-  if (display) display.innerHTML = html;
+  document.getElementById("conditionsDisplay").innerHTML = html;
+}
+setInterval(updateVisualConditions, 1000);
+
+// Gửi notify lên Telegram bot, có alert dễ test trên iPhone
+function sendNotifyToBot(duration, amount, coin) {
+  fetch("https://flask-production-cac4.up.railway.app/notify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ duration, amount, coin })
+  })
+  .then(res => res.json())
+  .then(data => alert("✅ Đã gửi notify thành công!"))
+  .catch(err => alert("❌ Gửi notify lỗi: " + err));
 }
 
-setInterval(updateVisualConditions, 1000);
+// Bắt sự kiện nút mã hóa với id btnEncrypt
+document.getElementById("btnEncrypt").addEventListener("click", async () => {
+  await encrypt();
+
+  const duration = document.getElementById("unlockTime").value;
+  const amount = document.getElementById("targetPrice").value + " USDT";
+  const coin = document.getElementById("coinInput").value.toUpperCase();
+
+  sendNotifyToBot(duration, amount, coin);
+});
