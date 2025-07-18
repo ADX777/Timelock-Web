@@ -76,6 +76,14 @@ async function encrypt() {
   const note = noteInput.value;
   const coin = document.getElementById("coinInput").value.toUpperCase();
   const price = document.getElementById("targetPrice").value;
+  if (isNaN(price) || parseFloat(price) <= 0) {
+    document.getElementById("targetPrice").style.border = "2px solid red";
+    alert("❌ Giá kỳ vọng không hợp lệ. Vui lòng nhập số.");
+    return;
+  } else {
+    document.getElementById("targetPrice").style.border = ""; // Xóa viền đỏ nếu hợp lệ
+  }
+
   const time = document.getElementById("unlockTime").value;
 
   const now = await getBinanceTime();
