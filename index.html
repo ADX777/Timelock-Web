@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -32,8 +33,6 @@
       padding: 10px 20px; background: #ffd700; color: #000; font-weight: bold;
       border: none; border-radius: 6px; cursor: pointer;
     }
-
-    /* Popup thanh toán */
     #paymentOverlay {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(0,0,0,0.85); z-index: 999; display: none;
@@ -78,7 +77,6 @@
     <div class="tab-button" onclick="switchTab('decryptTab')">🔓 Giải mã</div>
   </div>
 
-  <!-- Mã hóa -->
   <section id="encryptTab" class="tab-content active">
     <label>📝 Ghi chú:</label>
     <textarea id="noteInput" placeholder="Nhập ghi chú..."></textarea>
@@ -105,7 +103,6 @@
     </div>
   </section>
 
-  <!-- Thông báo -->
   <section id="infoTab" class="tab-content">
     <p>📌 Website TimeLock Ghi Chú giúp bạn bảo vệ thông tin bằng thời gian và giá coin.</p>
     <p>💵 Phí: <strong>0.5 USDT/ngày</strong></p>
@@ -113,7 +110,6 @@
     <p>🚫 Không mã hóa passphrase/seed/private key.</p>
   </section>
 
-  <!-- Giải mã -->
   <section id="decryptTab" class="tab-content">
     <label>📥 Nhập mã đã mã hóa:</label>
     <textarea id="decryptionInput" placeholder="📥 Dán mã đã mã hóa..." rows="6"></textarea>
@@ -122,7 +118,6 @@
     <button onclick="copyDecrypted()">📋 Copy</button>
   </section>
 
-  <!-- Popup Thanh toán -->
   <div id="paymentOverlay">
     <div class="payment-box">
       <button class="close-btn" onclick="closePaymentPopup()">✖</button>
@@ -146,7 +141,10 @@
       document.querySelector(`.tab-button[onclick="switchTab('${tabId}')"]`).classList.add('active');
     }
 
-    function showPaymentPopup() {
+    async function showPaymentPopup() {
+      const result = await encrypt();
+      if (!result) return;
+
       const unlock = new Date(document.getElementById("unlockTime").value);
       const now = new Date();
       let days = Math.ceil((unlock - now) / (1000 * 60 * 60 * 24));
@@ -155,11 +153,6 @@
       document.getElementById("paymentAmount").textContent = `${amount} USDT`;
 
       document.getElementById("paymentOverlay").style.display = "flex";
-
-      setTimeout(() => {
-        document.getElementById("paymentOverlay").style.display = "none";
-        encrypt(); // gọi hàm mã hóa sau thanh toán
-      }, 8000);
     }
 
     function closePaymentPopup() {
