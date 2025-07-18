@@ -43,7 +43,7 @@ async function fetchPrice() {
     const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${coin}`);
     const data = await res.json();
     document.getElementById("livePrice").textContent = data.price
-      ? `💹 Giá hiện tại: ${parseFloat(data.price).toFixed(2)} USDT`
+      ? `💹 Giá hiện tại: ${parseFloat(data.price).toFixed(2)} USDT (Binance)`
       : "❌ Không lấy được giá từ Binance.";
   } catch {
     document.getElementById("livePrice").textContent = "⚠️ Lỗi kết nối với Binance.";
@@ -76,23 +76,6 @@ async function encrypt() {
   const note = noteInput.value;
   const coin = document.getElementById("coinInput").value.toUpperCase();
   const price = document.getElementById("targetPrice").value;
-  const parsedPrice = parseFloat(price);
-  if (!/^\d+(\.\d+)?$/.test(price) || isNaN(parsedPrice) || parsedPrice <= 0) {
-    document.getElementById("targetPrice").style.border = "2px solid red";
-    alert("❌ Giá kỳ vọng không hợp lệ. Vui lòng nhập một số dương.");
-    return;
-  } else {
-    document.getElementById("targetPrice").style.border = "";
-  }
-
-  if (isNaN(price) || parseFloat(price) <= 0) {
-    document.getElementById("targetPrice").style.border = "2px solid red";
-    alert("❌ Giá kỳ vọng không hợp lệ. Vui lòng nhập số.");
-    return;
-  } else {
-    document.getElementById("targetPrice").style.border = ""; // Xóa viền đỏ nếu hợp lệ
-  }
-
   const time = document.getElementById("unlockTime").value;
 
   const now = await getBinanceTime();
