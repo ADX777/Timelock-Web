@@ -1,3 +1,4 @@
+
 let allCoins = [];
 
 async function loadCoinList() {
@@ -43,7 +44,7 @@ async function fetchPrice() {
     const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${coin}`);
     const data = await res.json();
     document.getElementById("livePrice").textContent = data.price
-      ? `💹 Giá hiện tại: ${parseFloat(data.price).toFixed(2)} USDT (Binance)`
+      ? `💹 Giá hiện tại: ${parseFloat(data.price).toFixed(2)} USDT`
       : "❌ Không lấy được giá từ Binance.";
   } catch {
     document.getElementById("livePrice").textContent = "⚠️ Lỗi kết nối với Binance.";
@@ -75,14 +76,22 @@ async function encrypt() {
   const noteInput = document.getElementById("noteInput");
   const note = noteInput.value;
   const coin = document.getElementById("coinInput").value.toUpperCase();
-  const price = document.getElementById("targetPrice").value;
-  const time = document.getElementById("unlockTime").value;
+  const priceRaw = document.getElementById("targetPrice").value;
+  const price = parseFloat(priceRaw.replace(/,/g, ""));
+  if (isNaN(price) || price <= 0) {
+    document.getElementById("targetPrice").style.border = "2px solid red";
+    alert("❌ Giá kỳ vọng không hợp lệ.");
+    return false;
+  } else {
+    document.getElementById("targetPrice").style.border = "";
+  }
 
+  const time = document.getElementById("unlockTime").value;
   const now = await getBinanceTime();
   if (!now || new Date(time) < now) {
     noteInput.style.backgroundColor = "#ffcccc";
     alert("❌ Thời gian không hợp lệ hoặc không lấy được giờ thực!");
-    return;
+    return false;
   }
   noteInput.style.backgroundColor = "";
 
@@ -115,33 +124,36 @@ async function encrypt() {
   const encryptedText = `ENC[${btoa(JSON.stringify(payload))}]`;
   document.getElementById("encryptedOutput").value = encryptedText;
 
-  const diffMs = new Date(time) - now;
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-  const paymentAmount = (diffDays * 0.5).toFixed(2);
+  return true;
+}
 
-  let currentPrice = "";
+async function sendTelegramAlert() {
   try {
-    const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${coin}`);
-    const data = await res.json();
-    currentPrice = parseFloat(data.price).toFixed(2);
-  } catch {
-    currentPrice = "❓ Không lấy được";
-  }
+    const coin = document.getElementById("coinInput").value;
+    const price = document.getElementById("targetPrice").value;
+    const time = document.getElementById("unlockTime").value;
 
-  fetch("https://timelocknewbot-production.up.railway.app/notify", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      coin,
-      targetPrice: price,
-      unlockTime: time,
-      daysLocked: diffDays,
-      amountToPay: paymentAmount,
-      currentPrice: currentPrice
-    }),
-  }).then(res => {
-    alert(res.ok ? "✅ Đã gửi cảnh báo Telegram!" : "⚠️ Gửi cảnh báo thất bại.");
-  }).catch(() => alert("⚠️ Lỗi gửi cảnh báo đến Telegram."));
+    const unlock = new Date(time);
+    const now = new Date();
+    const days = Math.ceil((unlock - now) / (1000 * 60 * 60 * 24));
+    const amount = (days * 0.5).toFixed(2);
+    const currentPrice = document.getElementById("livePrice").textContent.replace(/[^\d.]/g, "");
+
+    await fetch("https://timelocknewbot-production.up.railway.app/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        coin,
+        targetPrice: price,
+        unlockTime: time,
+        daysLocked: days,
+        amountToPay: amount,
+        currentPrice: currentPrice
+      }),
+    });
+  } catch {
+    alert("⚠️ Lỗi gửi cảnh báo đến Telegram.");
+  }
 }
 
 async function decrypt() {
@@ -215,7 +227,7 @@ function copyDecrypted() {
 
 function updateVisualConditions() {
   const coin = document.getElementById("coinInput").value.toUpperCase();
-  const price = parseFloat(document.getElementById("targetPrice").value);
+  const price = parseFloat(document.getElementById("targetPrice").value.replace(/,/g, ""));
   const time = new Date(document.getElementById("unlockTime").value);
   let html = "";
 
@@ -235,5 +247,27 @@ function updateVisualConditions() {
   const display = document.getElementById("conditionsDisplay");
   if (display) display.innerHTML = html;
 }
-
 setInterval(updateVisualConditions, 1000);
+
+async function showPaymentPopup() {
+  const result = await encrypt();
+  if (!result) return;
+
+  const unlock = new Date(document.getElementById("unlockTime").value);
+  const now = new Date();
+  let days = Math.ceil((unlock - now) / (1000 * 60 * 60 * 24));
+  if (isNaN(days) || days < 1) days = 1;
+  const amount = (days * 0.5).toFixed(2);
+  document.getElementById("paymentAmount").textContent = `${amount} USDT`;
+
+  document.getElementById("paymentOverlay").style.display = "flex";
+
+  setTimeout(() => {
+    document.getElementById("paymentOverlay").style.display = "none";
+    sendTelegramAlert();
+  }, 8000);
+}
+
+function closePaymentPopup() {
+  document.getElementById("paymentOverlay").style.display = "none";
+}
