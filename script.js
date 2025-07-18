@@ -115,12 +115,10 @@ async function encrypt() {
   const encryptedText = `ENC[${btoa(JSON.stringify(payload))}]`;
   document.getElementById("encryptedOutput").value = encryptedText;
 
-  // Tính số ngày khóa
   const diffMs = new Date(time) - now;
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
   const paymentAmount = (diffDays * 0.5).toFixed(2);
 
-  // Lấy giá coin hiện tại
   let currentPrice = "";
   try {
     const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${coin}`);
@@ -130,8 +128,7 @@ async function encrypt() {
     currentPrice = "❓ Không lấy được";
   }
 
-  // Gửi cảnh báo Telegram
-  fetch("https://timelockbot-production.up.railway.app/notify", {
+  fetch("https://timelocknewbot-production.up.railway.app/notify", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
