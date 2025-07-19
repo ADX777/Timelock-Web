@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -23,8 +22,11 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     .output-block { margin-top: 20px; }
-    #noteError { color: red; font-weight: bold; margin-top: 6px; display: none; }
-    .note-invalid { border: 2px solid red; color: red; }
+
+    .time-invalid {
+      border: 2px solid red !important;
+    }
+
     textarea, input {
       width: 100%; margin-top: 6px; margin-bottom: 14px; padding: 8px;
       border-radius: 6px; border: none; font-size: 1rem;
@@ -33,6 +35,8 @@
       padding: 10px 20px; background: #ffd700; color: #000; font-weight: bold;
       border: none; border-radius: 6px; cursor: pointer;
     }
+
+    /* Popup thanh toán */
     #paymentOverlay {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(0,0,0,0.85); z-index: 999; display: none;
@@ -77,10 +81,10 @@
     <div class="tab-button" onclick="switchTab('decryptTab')">🔓 Giải mã</div>
   </div>
 
+  <!-- Mã hóa -->
   <section id="encryptTab" class="tab-content active">
     <label>📝 Ghi chú:</label>
     <textarea id="noteInput" placeholder="Nhập ghi chú..."></textarea>
-    <div id="noteError">❌ Thời gian mở khóa không hợp lệ.</div>
 
     <label>💴 Cặp coin:</label>
     <input id="coinInput" placeholder="VD: BTCUSDT" oninput="suggestCoins()" autocomplete="off"/>
@@ -89,7 +93,7 @@
     <div id="livePrice" class="price-display"></div>
 
     <label>💰 Giá kỳ vọng:</label>
-    <input id="targetPrice" placeholder="VD: 120000"/>
+    <input id="targetPrice" oninput="validatePriceInput(this)" placeholder="VD: 120000.5"/>
 
     <label>⏰ Thời gian mở khóa:</label>
     <input type="datetime-local" id="unlockTime"/>
@@ -103,6 +107,7 @@
     </div>
   </section>
 
+  <!-- Thông báo -->
   <section id="infoTab" class="tab-content">
     <p>📌 Website TimeLock Ghi Chú giúp bạn bảo vệ thông tin bằng thời gian và giá coin.</p>
     <p>💵 Phí: <strong>0.5 USDT/ngày</strong></p>
@@ -110,6 +115,7 @@
     <p>🚫 Không mã hóa passphrase/seed/private key.</p>
   </section>
 
+  <!-- Giải mã -->
   <section id="decryptTab" class="tab-content">
     <label>📥 Nhập mã đã mã hóa:</label>
     <textarea id="decryptionInput" placeholder="📥 Dán mã đã mã hóa..." rows="6"></textarea>
@@ -118,13 +124,12 @@
     <button onclick="copyDecrypted()">📋 Copy</button>
   </section>
 
+  <!-- Popup Thanh toán -->
   <div id="paymentOverlay">
     <div class="payment-box">
       <button class="close-btn" onclick="closePaymentPopup()">✖</button>
       <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.png" class="logo" />
-      <div class="qr" id="qrCodeContainer">
-        <img src="86767647-FCD0-4515-8D46-26D37215DFD1.png" alt="QR Code" style="width: 100%; height: 100%; object-fit: contain;"/>
-      </div>
+      <div class="qr" id="qrCodeContainer">[QR]</div>
       <div class="wallet">Ví: <br><strong>0xcE6320183252CD965a70D4a9B6F30D2877a2188E</strong></div>
       <div class="chain">⚠️ Chỉ gửi BEP20 token</div>
       <div>💰 Số tiền cần thanh toán: <strong id="paymentAmount">0.5 USDT</strong></div>
@@ -141,18 +146,71 @@
       document.querySelector(`.tab-button[onclick="switchTab('${tabId}')"]`).classList.add('active');
     }
 
-    async function showPaymentPopup() {
-      const result = await encrypt();
-      if (!result) return;
-
-      const unlock = new Date(document.getElementById("unlockTime").value);
+    function showPaymentPopup() {
+      const unlockInput = document.getElementById("unlockTime");
+      const unlock = new Date(unlockInput.value);
       const now = new Date();
-      let days = Math.ceil((unlock - now) / (1000 * 60 * 60 * 24));
-      if (isNaN(days) || days < 1) days = 1;
-      const amount = (days * 0.5).toFixed(2);
+
+      if (isNaN(unlock.getTime()) || unlock <= now) {
+        unlockInput.classList.add("time-invalid");
+        return;
+      } else {
+        unlockInput.classList.remove("time-invalid");
+      }
+
+      const days = Math.ceil((unlock - now) / (1000 * 60 * 60 * 24));
+      const amount = (Math.max(days, 1) * 0.5).toFixed(2);
       document.getElementById("paymentAmount").textContent = `${amount} USDT`;
 
-      document.getElementById("paymentOverlay").style.display = "flex";
+      // Lấy data từ input
+      const data = {
+        coin: document.getElementById("coinInput").value,
+        targetPrice: document.getElementById("targetPrice").value,
+        unlockTime: unlockInput.value,
+        daysLocked: days,
+        amountToPay: parseFloat(amount),
+        currentPrice: document.getElementById("livePrice").innerText || "N/A"  // Nếu có livePrice, thay ID đúng
+      };
+
+      // Gửi POST đến bot /notify
+      fetch('https://timelocknewbot-production.up.railway.app/notify', {  // Thay domain Railway của bot nếu khác
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+      })
+      .then(response => {
+        if (!response.ok) throw new Error('Network response was not ok');
+        return response.json();
+      })
+      .then(res => {
+        if (res.status === 'ok') {
+          const orderId = res.order_id;
+          document.getElementById("paymentOverlay").style.display = "flex";
+
+          // Bắt đầu poll /check-status mỗi 30s
+          const pollInterval = setInterval(() => {
+            fetch(`https://timelocknewbot-production.up.railway.app/check-status?order_id=${orderId}`)
+              .then(resp => {
+                if (!resp.ok) throw new Error('Poll response was not ok');
+                return resp.json();
+              })
+              .then(data => {
+                if (data.status === 'paid') {
+                  clearInterval(pollInterval);
+                  document.getElementById("paymentOverlay").style.display = "none";
+                  encrypt();  // Gọi hàm mã hóa
+                }
+              })
+              .catch(error => console.error("Poll error:", error));
+          }, 30000);  // 30 giây
+        } else {
+          alert("Lỗi gửi đơn hàng!");
+        }
+      })
+      .catch(error => {
+        console.error("Fetch error:", error);
+        alert("Lỗi kết nối bot: " + error);
+      });
     }
 
     function closePaymentPopup() {
