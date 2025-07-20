@@ -13,32 +13,6 @@ async function loadCoinList() {
 }
 loadCoinList();
 
-// Function to update current time placeholder
-function updateCurrentTimePlaceholder() {
-  const now = new Date();
-  const hour = now.getHours().toString().padStart(2, '0');
-  const minute = now.getMinutes().toString().padStart(2, '0');
-  const day = now.getDate();
-  const month = now.getMonth() + 1;
-  const year = now.getFullYear();
-  const unlockInput = document.getElementById("unlockTime");
-  unlockInput.placeholder = `${hour}:${minute} ngày ${day} tháng ${month}, ${year}`;
-}
-
-// Update time placeholder every second
-setInterval(updateCurrentTimePlaceholder, 1000);
-updateCurrentTimePlaceholder(); // Initial call
-
-function parseVietnameseDate(str) {
-  const match = str.match(/(\d{1,2}:\d{2}) ngày (\d{1,2}) tháng (\d{1,2}), (\d{4})/);
-  if (!match) return null;
-  const [_, hhmm, day, month, year] = match;
-  const [hour, minute] = hhmm.split(':').map(Number);
-  const date = new Date(year, month - 1, day, hour, minute);
-  if (isNaN(date.getTime())) return null;
-  return date;
-}
-
 function suggestCoins() {
   const input = document.getElementById("coinInput").value.toUpperCase();
   const suggestions = document.getElementById("coinSuggestions");
@@ -98,62 +72,25 @@ async function sha256Bytes(msg) {
 }
 
 async function encrypt() {
-  const note = document.getElementById("noteInput").value.trim();
-  const coin = document.getElementById("coinInput").value.trim().toUpperCase();
-  const price = document.getElementById("targetPrice").value.trim();
-  let time = document.getElementById("unlockTime").value.trim();
+  const note = document.getElementById("noteInput").value;
+  const coin = document.getElementById("coinInput").value.toUpperCase();
+  const price = document.getElementById("targetPrice").value;
+  const time = document.getElementById("unlockTime").value;
 
-  if (!note) {
-    alert("❌ Vui lòng điền ghi chú.");
+  if (!/^\d+(\.\d+)?$/.test(price)) {
+    alert("❌ Giá kỳ vọng không hợp lệ. Vui lòng chỉ nhập số hoặc số thập phân.");
     return;
   }
 
-  if (!price && !time) {
-    alert("❌ Vui lòng điền ít nhất giá kỳ vọng hoặc thời gian.");
+  const now = await getBinanceTime();
+  const unlockDate = new Date(time);
+
+  const unlockInput = document.getElementById("unlockTime");
+  if (!now || isNaN(unlockDate.getTime()) || unlockDate <= now) {
+    unlockInput.classList.add("note-invalid");
     return;
-  }
-
-  let direction = '';
-  let currentPrice = 0;
-  if (price) {
-    if (!/^\d+(\.\d+)?$/.test(price)) {
-      alert("❌ Giá kỳ vọng không hợp lệ. Vui lòng chỉ nhập số hoặc số thập phân.");
-      return;
-    }
-    if (!coin || !allCoins.includes(coin)) {
-      alert("❌ Coin không hợp lệ. Vui lòng chọn từ danh sách gợi ý.");
-      return;
-    }
-    // Fetch current price to determine direction
-    try {
-      const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${coin}`);
-      const data = await res.json();
-      currentPrice = parseFloat(data.price);
-      direction = parseFloat(price) > currentPrice ? 'up' : 'down';
-    } catch {
-      alert("⚠️ Lỗi lấy giá hiện tại từ Binance.");
-      return;
-    }
-  }
-
-  let unlockDate = null;
-  if (time) {
-    unlockDate = parseVietnameseDate(time) || new Date(time);
-    if (isNaN(unlockDate.getTime())) {
-      alert("❌ Định dạng thời gian không hợp lệ. Vui lòng sử dụng định dạng như 'HH:mm ngày DD tháng MM, YYYY'.");
-      return;
-    }
-    const now = await getBinanceTime();
-    if (!now || unlockDate <= now) {
-      document.getElementById("unlockTime").classList.add("note-invalid");
-      alert("❌ Thời gian mở khóa phải lớn hơn thời gian hiện tại.");
-      return;
-    } else {
-      document.getElementById("unlockTime").classList.remove("note-invalid");
-    }
-    time = unlockDate.toISOString(); // Lưu dưới dạng ISO để dễ xử lý sau
   } else {
-    time = '';
+    unlockInput.classList.remove("note-invalid");
   }
 
   const encoder = new TextEncoder();
@@ -165,7 +102,7 @@ async function encrypt() {
   const aesKey1 = await crypto.subtle.importKey("raw", key1, { name: "AES-CBC" }, false, ["encrypt"]);
   const cipher1Buf = await crypto.subtle.encrypt({ name: "AES-CBC", iv: iv1 }, aesKey1, encoder.encode(note));
 
-  const key2Raw = `${coin || ''}|${price || ''}|${time}|${direction}|${btoa(String.fromCharCode(...salt))}`;
+  const key2Raw = `${coin}|${price}|${time}|${btoa(String.fromCharCode(...salt))}`;
   const key2Hash = await sha256Bytes(key2Raw);
   const aesKey2 = await crypto.subtle.importKey("raw", key2Hash, { name: "AES-CBC" }, false, ["encrypt"]);
   const cipher2Buf = await crypto.subtle.encrypt({ name: "AES-CBC", iv: iv2 }, aesKey2, key1);
@@ -176,10 +113,9 @@ async function encrypt() {
     iv1: btoa(String.fromCharCode(...iv1)),
     iv2: btoa(String.fromCharCode(...iv2)),
     salt: btoa(String.fromCharCode(...salt)),
-    coin: coin || '',
-    price: price || '',
-    time,
-    direction
+    coin,
+    price,
+    time
   };
 
   payload.sig = await sha256(JSON.stringify(payload));
@@ -188,7 +124,6 @@ async function encrypt() {
 }
 
 async function decrypt() {
-  document.getElementById("decryptedResult").innerHTML = "⌛ Đang giải mã...";
   const input = document.getElementById("decryptionInput").value.trim();
   if (!input.startsWith("ENC[") || !input.endsWith("]")) {
     document.getElementById("decryptedResult").textContent = "❌ Mã không đúng định dạng.";
@@ -197,46 +132,42 @@ async function decrypt() {
 
   try {
     const payload = JSON.parse(atob(input.slice(4, -1)));
-    const { cipher1, cipher2, iv1, iv2, salt, coin, price, time, direction, sig } = payload;
+    const { cipher1, cipher2, iv1, iv2, salt, coin, price, time, sig } = payload;
 
-    const verifySig = await sha256(JSON.stringify({ cipher1, cipher2, iv1, iv2, salt, coin, price, time, direction }));
+    const verifySig = await sha256(JSON.stringify({ cipher1, cipher2, iv1, iv2, salt, coin, price, time }));
     if (verifySig !== sig) {
       document.getElementById("decryptedResult").textContent = "❌ Mã đã bị chỉnh sửa.";
       return;
     }
 
-    const priceVal = price ? parseFloat(price) : NaN;
-    const unlockTs = time ? Date.parse(time) : NaN;
+    const priceVal = parseFloat(price);
+    const unlockTs = Date.parse(time);
+    const data = await getPricesAndTimes(coin);
 
-    const hasPrice = price !== '';
-    const hasTime = time !== '';
-
-    if (hasPrice && coin === '') {
-      document.getElementById("decryptedResult").textContent = "❌ Coin không được để trống khi có giá kỳ vọng.";
-      return;
-    }
-
-    const fetchCoin = coin || "BTCUSDT";
-    const data = await getPricesAndTimes(fetchCoin);
-
-    let priceOK = !hasPrice || checkPriceConditions(data, priceVal, coin || fetchCoin, direction);
-    let timeOK = !hasTime || checkTimeConditions(data, unlockTs);
+    const priceOK = checkPriceConditions(data, priceVal, coin);
+    const timeOK = checkTimeConditions(data, unlockTs);
 
     if (!priceOK || !timeOK) {
-      const coinPair = (coin || "BTC").replace("USDT", "/USDT");
-      const formattedPrice = price ? parseFloat(price).toLocaleString() : '';
-      const formattedDate = time ? new Date(unlockTs).toLocaleDateString("vi-VN") : '';
+      const coinPair = coin.replace("USDT", "/USDT");
+      const formattedPrice = parseFloat(price).toLocaleString();
+      const date = new Date(time);
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      const formattedDate = `Mục tiêu ${hours}:${minutes} ${day}/${month}/${year}`;
 
       const msg = `
         🔒 Chưa đủ điều kiện mở khóa.<br>
-        ${hasPrice ? `💰 Giá ${coinPair} mục tiêu: ${formattedPrice}$<br>` : ''}
-        ${hasTime ? `⏰ Thời gian mục tiêu: ${formattedDate}` : ''}
+        💰 Giá ${coinPair} mục tiêu: ${formattedPrice}$<br>
+        ⏰ ${formattedDate}
       `;
       document.getElementById("decryptedResult").innerHTML = msg;
       return;
     }
 
-    const key2Raw = `${coin}|${price}|${time}|${direction}|${salt}`;
+    const key2Raw = `${coin}|${price}|${time}|${salt}`;
     const key2Hash = await sha256Bytes(key2Raw);
     const aesKey2 = await crypto.subtle.importKey("raw", key2Hash, { name: "AES-CBC" }, false, ["decrypt"]);
     const key1Buf = await crypto.subtle.decrypt(
@@ -259,38 +190,10 @@ async function decrypt() {
   }
 }
 
-async function showPaymentPopup() {
-  const note = document.getElementById("noteInput").value.trim();
-  const coin = document.getElementById("coinInput").value.trim().toUpperCase();
-  const price = document.getElementById("targetPrice").value.trim();
-  const timeStr = document.getElementById("unlockTime").value.trim();
-
-  if (!note) {
-    alert("❌ Vui lòng điền ghi chú.");
-    return;
-  }
-
-  if (!price && !timeStr) {
-    alert("❌ Vui lòng điền ít nhất giá kỳ vọng hoặc thời gian.");
-    return;
-  }
-
-  if (price) {
-    if (!/^\d+(\.\d+)?$/.test(price)) {
-      alert("❌ Giá kỳ vọng không hợp lệ. Vui lòng chỉ nhập số hoặc số thập phân.");
-      return;
-    }
-    if (!coin || !allCoins.includes(coin)) {
-      alert("❌ Coin không hợp lệ. Vui lòng chọn từ danh sách gợi ý.");
-      return;
-    }
-  }
-
-  if (timeStr) {
-    const validTime = await validateUnlockTime();
-    if (!validTime) return;
-
-    const unlock = parseVietnameseDate(timeStr) || new Date(timeStr);
+function showPaymentPopup() {
+  validateUnlockTime().then(valid => {
+    if (!valid) return;
+    const unlock = new Date(document.getElementById("unlockTime").value);
     const now = new Date();
     let days = Math.ceil((unlock - now) / (1000 * 60 * 60 * 24));
     if (isNaN(days) || days < 1) days = 1;
@@ -302,29 +205,17 @@ async function showPaymentPopup() {
       document.getElementById("paymentOverlay").style.display = "none";
       encrypt();
     }, 8000);
-  } else {
-    encrypt();
-  }
+  });
 }
 
 async function validateUnlockTime() {
   const unlockInput = document.getElementById("unlockTime");
-  const timeStr = unlockInput.value.trim();
-  if (!timeStr) return true; // Không bắt buộc nếu không điền
-
-  const unlockTime = parseVietnameseDate(timeStr) || new Date(timeStr);
-  if (isNaN(unlockTime.getTime())) {
-    unlockInput.classList.add("note-invalid");
-    alert("❌ Định dạng thời gian không hợp lệ. Vui lòng sử dụng định dạng như 'HH:mm ngày DD tháng MM, YYYY'.");
-    return false;
-  }
-
   const now = await getBinanceTime();
+  const unlockTime = new Date(unlockInput.value);
   const isValid = now && unlockTime > now;
 
   if (!isValid) {
     unlockInput.classList.add("note-invalid");
-    alert("❌ Thời gian mở khóa phải lớn hơn thời gian hiện tại.");
     return false;
   } else {
     unlockInput.classList.remove("note-invalid");
@@ -383,29 +274,24 @@ async function getPricesAndTimes(coin) {
   return results;
 }
 
-function checkPriceConditions(data, targetPrice, coin, direction) {
+function checkPriceConditions(data, targetPrice, coin) {
   const good = data.filter(d => d.price != null);
   if (good.length < 2) return false;
 
   const prices = good.map(d => d.price);
-  let okCount;
-  if (direction === 'up') {
-    okCount = prices.filter(p => p >= targetPrice).length;
-  } else {
-    okCount = prices.filter(p => p <= targetPrice).length;
-  }
+  const okCount = prices.filter(p => p >= targetPrice).length;
   const spread = Math.max(...prices) - Math.min(...prices);
   const maxAllowed = coin === "BTCUSDT" ? 700 : 300;
 
   return okCount >= 2 && spread <= maxAllowed;
 }
 
-function checkTimeConditions(data, unlockTime) {
+function checkTimeConditions(data, unlockTs) {
   const good = data.filter(d => d.timestamp != null);
   if (good.length < 2) return false;
 
   const timestamps = good.map(d => d.timestamp);
-  const meets = timestamps.filter(t => t >= unlockTime).length;
+  const meets = timestamps.filter(t => t >= unlockTs).length;
   const spread = Math.max(...timestamps) - Math.min(...timestamps);
 
   return meets >= 2 && spread <= 30 * 60 * 1000;
