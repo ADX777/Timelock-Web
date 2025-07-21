@@ -119,9 +119,13 @@
   <section id="decryptTab" class="tab-content">
     <label>📥 Nhập mã đã mã hóa:</label>
     <textarea id="decryptionInput" placeholder="📥 Dán mã đã mã hóa..." rows="6"></textarea>
-    <button onclick="decrypt()">🔓 Giải mã</button>
+    <button id="decryptButton" onclick="decrypt()">🔓 Giải mã</button>
     <div id="decryptedResult" class="output-block"></div>
     <button onclick="copyDecrypted()">📋 Copy</button>
+    <div id="loadingIndicator" style="display: none; text-align: center; padding: 10px;">
+      <div class="spinner"></div>
+      <p>Đang giải mã... Vui lòng chờ giây lát ⏳</p>
+    </div>
   </section>
 
   <!-- Popup Thanh toán -->
@@ -162,55 +166,12 @@
       const amount = (Math.max(days, 1) * 0.5).toFixed(2);
       document.getElementById("paymentAmount").textContent = `${amount} USDT`;
 
-      // Lấy data từ input
-      const data = {
-        coin: document.getElementById("coinInput").value,
-        targetPrice: document.getElementById("targetPrice").value,
-        unlockTime: unlockInput.value,
-        daysLocked: days,
-        amountToPay: parseFloat(amount),
-        currentPrice: document.getElementById("livePrice").innerText || "N/A"  // Nếu có livePrice, thay ID đúng
-      };
+      document.getElementById("paymentOverlay").style.display = "flex";
 
-      // Gửi POST đến bot /notify
-      fetch('https://timelocknewbot-production.up.railway.app/notify', {  // Thay domain Railway của bot nếu khác
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(data)
-      })
-      .then(response => {
-        if (!response.ok) throw new Error('Network response was not ok');
-        return response.json();
-      })
-      .then(res => {
-        if (res.status === 'ok') {
-          const orderId = res.order_id;
-          document.getElementById("paymentOverlay").style.display = "flex";
-
-          // Bắt đầu poll /check-status mỗi 30s
-          const pollInterval = setInterval(() => {
-            fetch(`https://timelocknewbot-production.up.railway.app/check-status?order_id=${orderId}`)
-              .then(resp => {
-                if (!resp.ok) throw new Error('Poll response was not ok');
-                return resp.json();
-              })
-              .then(data => {
-                if (data.status === 'paid') {
-                  clearInterval(pollInterval);
-                  document.getElementById("paymentOverlay").style.display = "none";
-                  encrypt();  // Gọi hàm mã hóa
-                }
-              })
-              .catch(error => console.error("Poll error:", error));
-          }, 30000);  // 30 giây
-        } else {
-          alert("Lỗi gửi đơn hàng!");
-        }
-      })
-      .catch(error => {
-        console.error("Fetch error:", error);
-        alert("Lỗi kết nối bot: " + error);
-      });
+      setTimeout(() => {
+        document.getElementById("paymentOverlay").style.display = "none";
+        encrypt();
+      }, 8000);
     }
 
     function closePaymentPopup() {
@@ -223,8 +184,12 @@
     }
 
     function copyDecrypted() {
-      const text = document.getElementById("decryptedResult").innerText;
-      navigator.clipboard.writeText(text).then(() => alert("✅ Đã sao chép ghi chú!"));
+      const noteContent = document.querySelector('.note-content');
+      if (noteContent) {
+        navigator.clipboard.writeText(noteContent.innerText).then(() => alert("✅ Đã sao chép!"));
+      } else {
+        alert("❌ Không có nội dung để sao chép.");
+      }
     }
   </script>
 
