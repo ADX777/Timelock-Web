@@ -1,5 +1,8 @@
 let allCoins = [];
 
+const alphaKey = 'demo';
+const twelveKey = 'demo';
+
 async function loadCoinList() {
   try {
     const res = await fetch("https://api.binance.com/api/v3/exchangeInfo");
@@ -7,6 +10,11 @@ async function loadCoinList() {
     allCoins = data.symbols
       .filter(s => s.symbol.endsWith("USDT"))
       .map(s => s.symbol);
+    const forexBases = ['EUR', 'GBP', 'USD', 'JPY', 'CAD', 'AUD', 'NZD', 'CHF', 'XAU'];
+    allCoins = allCoins.filter(symbol => !forexBases.includes(symbol.slice(0, -4)));
+    allCoins.push('EUR/USD', 'GBP/USD', 'USD/JPY', 'XAU/USD');
+    allCoins.push('EUR/JPY', 'GBP/JPY', 'EUR/GBP', 'EUR/CAD', 'EUR/AUD', 'EUR/NZD', 'GBP/AUD', 'GBP/CAD', 'NZD/CAD', 'USD/CAD', 'USD/CHF');
+    allCoins.sort();
   } catch (e) {
     console.error("❌ Không lấy được danh sách coin từ Binance", e);
   }
@@ -32,21 +40,69 @@ function suggestCoins() {
   });
 }
 
+async function fetchWithRetry(url, retries = 3, delay = 1000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      return res;
+    } catch (e) {
+      console.error(`Error fetching ${url}: ${e}`);
+      if (i < retries - 1) {
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  return null;
+}
+
 async function fetchPrice() {
   const coin = document.getElementById("coinInput").value.trim().toUpperCase();
-  if (!coin.endsWith("USDT")) {
-    document.getElementById("livePrice").textContent = "";
-    return;
-  }
 
-  try {
-    const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${coin}`);
-    const data = await res.json();
-    document.getElementById("livePrice").textContent = data.price
-      ? `💹 Giá hiện tại: ${parseFloat(data.price).toFixed(2)} USDT`
-      : "❌ Không lấy được giá từ Binance.";
-  } catch {
-    document.getElementById("livePrice").textContent = "⚠️ Lỗi kết nối với Binance.";
+  if (coin.includes('/')) {
+    const [from, to] = coin.split('/');
+
+    // Primary: Alpha Vantage
+    const alphaUrl = `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${from}&to_currency=${to}&apikey=${alphaKey}`;
+    const alphaRes = await fetchWithRetry(alphaUrl);
+    if (alphaRes) {
+      try {
+        const data = await alphaRes.json();
+        const price = data['Realtime Currency Exchange Rate']?.['5. Exchange Rate'];
+        if (price) {
+          document.getElementById("livePrice").textContent = `💹 Giá hiện tại: ${parseFloat(price).toFixed(5)} USD`;
+          return;
+        }
+      } catch {}
+    }
+
+    // Fallback: Twelve Data
+    const twelveUrl = `https://api.twelvedata.com/price?symbol=${coin}&apikey=${twelveKey}`;
+    const twelveRes = await fetchWithRetry(twelveUrl);
+    if (twelveRes) {
+      try {
+        const data = await twelveRes.json();
+        const price = data.price;
+        if (price) {
+          document.getElementById("livePrice").textContent = `💹 Giá hiện tại: ${parseFloat(price).toFixed(5)} USD`;
+          return;
+        }
+      } catch {}
+    }
+
+    document.getElementById("livePrice").textContent = "⚠️ Lỗi kết nối với API.";
+  } else if (coin.endsWith("USDT")) {
+    try {
+      const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${coin}`);
+      const data = await res.json();
+      document.getElementById("livePrice").textContent = data.price
+        ? `💹 Giá hiện tại: ${parseFloat(data.price).toFixed(2)} USDT`
+        : "❌ Không lấy được giá từ Binance.";
+    } catch {
+      document.getElementById("livePrice").textContent = "⚠️ Lỗi kết nối với Binance.";
+    }
+  } else {
+    document.getElementById("livePrice").textContent = "";
   }
 }
 
@@ -312,47 +368,82 @@ function validatePriceInput(input) {
 
 // ✅ Các hàm hỗ trợ logic kiểm tra giá & thời gian
 async function getPricesAndTimes(coin) {
-  const sources = [
-    { name: 'Binance', url: `https://api.binance.com/api/v3/ticker/price?symbol=${coin}` },
-    { name: 'Coinbase', url: `https://api.coinbase.com/v2/prices/${coin.replace('USDT', '')}-USDT/spot` },
-    { name: 'CoinGecko', url: `https://api.coingecko.com/api/v3/simple/price?ids=${coin.replace('USDT', '').toLowerCase()}&vs_currencies=usdt` },
-    { name: 'CryptoCompare', url: `https://min-api.cryptocompare.com/data/price?fsym=${coin.replace('USDT', '')}&tsyms=USDT` }
-  ];
+  if (coin.includes('/')) {
+    const [from, to] = coin.split('/');
 
-  // Fetch Binance first
-  const binanceSrc = sources[0];
-  try {
-    const res = await fetch(binanceSrc.url);
-    const dataJson = await res.json();
-    const price = parseFloat(dataJson.price);
-    const timestamp = new Date(res.headers.get('Date')).getTime();
-    if (!isNaN(price) && price !== null) {
-      return [{ source: 'Binance', price, timestamp }];
-    } else {
-      throw new Error('Invalid price from Binance');
-    }
-  } catch {
-    // If Binance fails, fetch others in parallel
-    const otherSources = sources.slice(1);
-    const results = await Promise.all(otherSources.map(async src => {
+    const sources = [
+      {
+        name: 'Alpha Vantage',
+        url: `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${from}&to_currency=${to}&apikey=${alphaKey}`,
+        parsePrice: (data) => data['Realtime Currency Exchange Rate']?.['5. Exchange Rate']
+      },
+      {
+        name: 'Twelve Data',
+        url: `https://api.twelvedata.com/price?symbol=${coin}&apikey=${twelveKey}`,
+        parsePrice: (data) => data.price
+      }
+    ];
+
+    const results = await Promise.all(sources.map(async src => {
+      const res = await fetchWithRetry(src.url);
+      if (!res) return { source: src.name, price: null, timestamp: null };
       try {
-        const res = await fetch(src.url);
-        let price;
         const jsonData = await res.json();
-        if (src.name === 'Coinbase') {
-          price = parseFloat(jsonData.data.amount);
-        } else if (src.name === 'CoinGecko') {
-          price = parseFloat(jsonData[coin.replace('USDT', '').toLowerCase()].usdt);
-        } else if (src.name === 'CryptoCompare') {
-          price = parseFloat(jsonData.USDT);
-        }
+        const price = parseFloat(src.parsePrice(jsonData));
         const timestamp = new Date(res.headers.get('Date')).getTime();
-        return { source: src.name, price, timestamp };
+        if (!isNaN(price)) {
+          return { source: src.name, price, timestamp };
+        } else {
+          return { source: src.name, price: null, timestamp: null };
+        }
       } catch {
         return { source: src.name, price: null, timestamp: null };
       }
     }));
     return results;
+  } else {
+    const sources = [
+      { name: 'Binance', url: `https://api.binance.com/api/v3/ticker/price?symbol=${coin}` },
+      { name: 'Coinbase', url: `https://api.coinbase.com/v2/prices/${coin.replace('USDT', '')}-USDT/spot` },
+      { name: 'CoinGecko', url: `https://api.coingecko.com/api/v3/simple/price?ids=${coin.replace('USDT', '').toLowerCase()}&vs_currencies=usdt` },
+      { name: 'CryptoCompare', url: `https://min-api.cryptocompare.com/data/price?fsym=${coin.replace('USDT', '')}&tsyms=USDT` }
+    ];
+
+    // Fetch Binance first
+    const binanceSrc = sources[0];
+    try {
+      const res = await fetch(binanceSrc.url);
+      const dataJson = await res.json();
+      const price = parseFloat(dataJson.price);
+      const timestamp = new Date(res.headers.get('Date')).getTime();
+      if (!isNaN(price) && price !== null) {
+        return [{ source: 'Binance', price, timestamp }];
+      } else {
+        throw new Error('Invalid price from Binance');
+      }
+    } catch {
+      // If Binance fails, fetch others in parallel
+      const otherSources = sources.slice(1);
+      const results = await Promise.all(otherSources.map(async src => {
+        try {
+          const res = await fetch(src.url);
+          let price;
+          const jsonData = await res.json();
+          if (src.name === 'Coinbase') {
+            price = parseFloat(jsonData.data.amount);
+          } else if (src.name === 'CoinGecko') {
+            price = parseFloat(jsonData[coin.replace('USDT', '').toLowerCase()].usdt);
+          } else if (src.name === 'CryptoCompare') {
+            price = parseFloat(jsonData.USDT);
+          }
+          const timestamp = new Date(res.headers.get('Date')).getTime();
+          return { source: src.name, price, timestamp };
+        } catch {
+          return { source: src.name, price: null, timestamp: null };
+        }
+      }));
+      return results;
+    }
   }
 }
 
