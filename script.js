@@ -165,10 +165,6 @@ async function decrypt() {
 
     const timeOK = timeResult.ok;
 
-    if (timeResult.fallback && !timeResult.allFailed) {
-      alert("⚠️ Chỉ dùng một nguồn, rủi ro gian lận");
-    }
-
     if (!priceOK && !timeOK) {
       const coinPair = coin.replace("USDT", "/USDT");
       const formattedPrice = parseFloat(price).toLocaleString("vi-VN");
