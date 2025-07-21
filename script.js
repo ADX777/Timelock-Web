@@ -75,7 +75,7 @@ async function encrypt() {
   const note = document.getElementById("noteInput").value;
   const coin = document.getElementById("coinInput").value.toUpperCase();
   const price = document.getElementById("targetPrice").value;
-  const time = document.getElementById("unlockTime").value;
+  const unlockLocalString = document.getElementById("unlockTime").value;
 
   if (!/^\d+(\.\d+)?$/.test(price)) {
     alert("❌ Giá kỳ vọng không hợp lệ. Vui lòng chỉ nhập số hoặc số thập phân.");
@@ -83,7 +83,8 @@ async function encrypt() {
   }
 
   const now = await getBinanceTime();
-  const unlockDate = new Date(time);
+  const unlockDate = new Date(unlockLocalString);
+  const timeUTC = unlockDate.toISOString();
 
   const unlockInput = document.getElementById("unlockTime");
   if (!now || isNaN(unlockDate.getTime()) || unlockDate <= now) {
@@ -102,7 +103,7 @@ async function encrypt() {
   const aesKey1 = await crypto.subtle.importKey("raw", key1, { name: "AES-CBC" }, false, ["encrypt"]);
   const cipher1Buf = await crypto.subtle.encrypt({ name: "AES-CBC", iv: iv1 }, aesKey1, encoder.encode(note));
 
-  const key2Raw = `${coin}|${price}|${time}|${btoa(String.fromCharCode(...salt))}`;
+  const key2Raw = `${coin}|${price}|${timeUTC}|${btoa(String.fromCharCode(...salt))}`;
   const key2Hash = await sha256Bytes(key2Raw);
   const aesKey2 = await crypto.subtle.importKey("raw", key2Hash, { name: "AES-CBC" }, false, ["encrypt"]);
   const cipher2Buf = await crypto.subtle.encrypt({ name: "AES-CBC", iv: iv2 }, aesKey2, key1);
@@ -115,7 +116,7 @@ async function encrypt() {
     salt: btoa(String.fromCharCode(...salt)),
     coin,
     price,
-    time
+    time: timeUTC
   };
 
   payload.sig = await sha256(JSON.stringify(payload));
@@ -124,46 +125,62 @@ async function encrypt() {
 }
 
 async function decrypt() {
-  const input = document.getElementById("decryptionInput").value.trim();
-  if (!input.startsWith("ENC[") || !input.endsWith("]")) {
-    document.getElementById("decryptedResult").textContent = "❌ Mã không đúng định dạng.";
-    return;
-  }
+  const decryptButton = document.getElementById("decryptButton");
+  const loadingIndicator = document.getElementById("loadingIndicator");
+  const resultElement = document.getElementById("decryptedResult");
+
+  decryptButton.disabled = true;
+  loadingIndicator.style.display = "block";
+  resultElement.innerHTML = "";
 
   try {
+    const input = document.getElementById("decryptionInput").value.trim();
+    if (!input.startsWith("ENC[") || !input.endsWith("]")) {
+      resultElement.textContent = "❌ Mã không đúng định dạng.";
+      return;
+    }
+
     const payload = JSON.parse(atob(input.slice(4, -1)));
     const { cipher1, cipher2, iv1, iv2, salt, coin, price, time, sig } = payload;
 
     const verifySig = await sha256(JSON.stringify({ cipher1, cipher2, iv1, iv2, salt, coin, price, time }));
     if (verifySig !== sig) {
-      document.getElementById("decryptedResult").textContent = "❌ Mã đã bị chỉnh sửa.";
+      resultElement.textContent = "❌ Mã đã bị chỉnh sửa.";
       return;
     }
 
     const priceVal = parseFloat(price);
-    const unlockTs = Date.parse(time);
+    const unlockTs = new Date(time).getTime();
+    const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
     const data = await getPricesAndTimes(coin);
 
     const priceOK = checkPriceConditions(data, priceVal, coin);
-    const timeOK = checkTimeConditions(data, unlockTs);
+    const timeResult = await checkTimeConditions(unlockTs);
 
-    if (!priceOK || !timeOK) {
+    if (timeResult.allFailed) {
+      resultElement.innerHTML = "⚠️ Không kết nối server thời gian, thử lại sau.";
+      return;
+    }
+
+    const timeOK = timeResult.ok;
+
+    if (timeResult.fallback && !timeResult.allFailed) {
+      alert("⚠️ Chỉ dùng một nguồn, rủi ro gian lận");
+    }
+
+    if (!priceOK && !timeOK) {
       const coinPair = coin.replace("USDT", "/USDT");
-      const formattedPrice = parseFloat(price).toLocaleString();
-      const date = new Date(time);
-      const hours = date.getHours().toString().padStart(2, '0');
-      const minutes = date.getMinutes().toString().padStart(2, '0');
-      const day = date.getDate().toString().padStart(2, '0');
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const year = date.getFullYear();
-      const formattedDate = `Mục tiêu ${hours}:${minutes} ${day}/${month}/${year}`;
+      const formattedPrice = parseFloat(price).toLocaleString("vi-VN");
+      const formattedDate = new Date(time).toLocaleString("vi-VN", { timeZone: userTimeZone, hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
 
       const msg = `
-        🔒 Chưa đủ điều kiện mở khóa.<br>
-        💰 Giá ${coinPair} mục tiêu: ${formattedPrice}$<br>
-        ⏰ ${formattedDate}
+        <div class="error-title blink">Giải mã không thành công</div>
+        <div class="error-detail"><span class="icon">💰</span> ${coinPair} < ${formattedPrice}$</div>
+        <div class="error-detail"><span class="icon">⏰</span> Thời gian < ${formattedDate}</div>
       `;
-      document.getElementById("decryptedResult").innerHTML = msg;
+      resultElement.innerHTML = msg;
+      resultElement.classList.add('error-border');
       return;
     }
 
@@ -184,9 +201,24 @@ async function decrypt() {
     );
 
     const note = new TextDecoder().decode(noteBuf);
-    document.getElementById("decryptedResult").innerHTML = `📝 Ghi chú: ${note}<br/>🔓 Đã mở khóa`;
+    resultElement.innerHTML = `<div class="note-label">Ghi chú:</div><div class="note-content">${note}</div>`;
+    resultElement.classList.add('success-border'); // Sửa ở đây: Chuyển từ error-border sang success-border khi thành công
+    const successMsg = document.createElement('div');
+    successMsg.id = 'successMsg';
+    successMsg.textContent = 'Giải mã thành công';
+    resultElement.appendChild(successMsg);
+
+    setTimeout(() => {
+      successMsg.style.opacity = 0;
+      setTimeout(() => {
+        successMsg.remove();
+      }, 500);
+    }, 3000);
   } catch {
-    document.getElementById("decryptedResult").textContent = "❌ Giải mã thất bại.";
+    resultElement.textContent = "❌ Giải mã thất bại.";
+  } finally {
+    loadingIndicator.style.display = "none";
+    decryptButton.disabled = false;
   }
 }
 
@@ -228,11 +260,6 @@ function copyEncrypted() {
   navigator.clipboard.writeText(text).then(() => alert("✅ Đã sao chép mã hóa!"));
 }
 
-function copyDecrypted() {
-  const text = document.getElementById("decryptedResult").innerText;
-  navigator.clipboard.writeText(text).then(() => alert("✅ Đã sao chép ghi chú!"));
-}
-
 function validatePriceInput(input) {
   let value = input.value;
   value = value.replace(/[^0-9.]/g, '');
@@ -255,44 +282,117 @@ async function getPricesAndTimes(coin) {
     { name: 'CryptoCompare', url: `https://min-api.cryptocompare.com/data/price?fsym=${coin.replace('USDT', '')}&tsyms=USDT` }
   ];
 
-  const results = await Promise.all(sources.map(async src => {
-    try {
-      const res = await fetch(src.url);
-      const price = await res.json().then(data => {
-        if (src.name === 'Binance') return parseFloat(data.price);
-        if (src.name === 'Coinbase') return parseFloat(data.data.amount);
-        if (src.name === 'CoinGecko') return parseFloat(data[coin.replace('USDT', '').toLowerCase()].usdt);
-        if (src.name === 'CryptoCompare') return parseFloat(data.USDT);
-      });
-      const timestamp = new Date(res.headers.get('Date')).getTime();
-      return { source: src.name, price, timestamp };
-    } catch {
-      return { source: src.name, price: null, timestamp: null };
+  // Fetch Binance first
+  const binanceSrc = sources[0];
+  try {
+    const res = await fetch(binanceSrc.url);
+    const dataJson = await res.json();
+    const price = parseFloat(dataJson.price);
+    const timestamp = new Date(res.headers.get('Date')).getTime();
+    if (!isNaN(price) && price !== null) {
+      return [{ source: 'Binance', price, timestamp }];
+    } else {
+      throw new Error('Invalid price from Binance');
     }
-  }));
-
-  return results;
+  } catch {
+    // If Binance fails, fetch others in parallel
+    const otherSources = sources.slice(1);
+    const results = await Promise.all(otherSources.map(async src => {
+      try {
+        const res = await fetch(src.url);
+        let price;
+        const jsonData = await res.json();
+        if (src.name === 'Coinbase') {
+          price = parseFloat(jsonData.data.amount);
+        } else if (src.name === 'CoinGecko') {
+          price = parseFloat(jsonData[coin.replace('USDT', '').toLowerCase()].usdt);
+        } else if (src.name === 'CryptoCompare') {
+          price = parseFloat(jsonData.USDT);
+        }
+        const timestamp = new Date(res.headers.get('Date')).getTime();
+        return { source: src.name, price, timestamp };
+      } catch {
+        return { source: src.name, price: null, timestamp: null };
+      }
+    }));
+    return results;
+  }
 }
 
 function checkPriceConditions(data, targetPrice, coin) {
-  const good = data.filter(d => d.price != null);
-  if (good.length < 2) return false;
-
-  const prices = good.map(d => d.price);
-  const okCount = prices.filter(p => p >= targetPrice).length;
-  const spread = Math.max(...prices) - Math.min(...prices);
-  const maxAllowed = coin === "BTCUSDT" ? 700 : 300;
-
-  return okCount >= 2 && spread <= maxAllowed;
+  const good = data.filter(d => d.price != null && !isNaN(d.price));
+  if (good.length < 1) return false;
+  return good.some(d => d.price >= targetPrice);
 }
 
-function checkTimeConditions(data, unlockTs) {
-  const good = data.filter(d => d.timestamp != null);
-  if (good.length < 2) return false;
+async function getTrustedTimes() {
+  const sources = [
+    {
+      name: 'WorldTimeAPI',
+      url: 'http://worldtimeapi.org/api/timezone/Etc/UTC',
+      parse: async (res) => {
+        const data = await res.json();
+        return new Date(data.utc_datetime).getTime();
+      }
+    },
+    {
+      name: 'NIST',
+      url: 'https://www.nist.gov/',
+      parse: (res) => new Date(res.headers.get('Date')).getTime(),
+      method: 'HEAD'
+    },
+    {
+      name: 'Binance',
+      url: 'https://api.binance.com/api/v3/time',
+      parse: async (res) => {
+        const data = await res.json();
+        return data.serverTime;
+      }
+    }
+  ];
 
-  const timestamps = good.map(d => d.timestamp);
-  const meets = timestamps.filter(t => t >= unlockTs).length;
-  const spread = Math.max(...timestamps) - Math.min(...timestamps);
+  async function fetchWithRetry(src, retries = 3, delay = 1000) {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const res = await fetch(src.url, { method: src.method || 'GET' });
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return res;
+      } catch (e) {
+        console.error(`Error fetching ${src.name}: ${e}`);
+        if (i < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+    return null;
+  }
 
-  return meets >= 2 && spread <= 30 * 60 * 1000;
+  const results = await Promise.all(sources.map(async (src) => {
+    const res = await fetchWithRetry(src);
+    if (!res) return null;
+    try {
+      const timestamp = await src.parse(res);
+      if (isNaN(timestamp)) return null;
+      return { source: src.name, timestamp };
+    } catch {
+      return null;
+    }
+  }));
+
+  const validTimes = results.filter(t => t !== null);
+  return validTimes.length > 0 ? validTimes : null;
+}
+
+async function checkTimeConditions(unlockTs) {
+  const times = await getTrustedTimes();
+  if (times === null) {
+    return { ok: false, fallback: true, allFailed: true };
+  } else if (times.length === 1) {
+    const ok = times[0].timestamp >= unlockTs;
+    return { ok, fallback: true, allFailed: false };
+  } else {
+    const meeting = times.filter(t => t.timestamp >= unlockTs).length;
+    const ok = meeting >= 2;
+    return { ok, fallback: false, allFailed: false };
+  }
 }
