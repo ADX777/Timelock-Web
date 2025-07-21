@@ -253,7 +253,48 @@ async function validateUnlockTime() {
 
 function copyEncrypted() {
   const text = document.getElementById("encryptedOutput").value;
-  navigator.clipboard.writeText(text).then(() => alert("✅ Đã sao chép mã hóa!"));
+  navigator.clipboard.writeText(text).then(() => {
+    const successMsg = document.createElement('div');
+    successMsg.className = 'copy-success';
+    successMsg.textContent = '✅ Đã sao chép!';
+    const outputBlock = document.querySelector('.output-block');
+    if (outputBlock) {
+      outputBlock.appendChild(successMsg);
+    } else {
+      document.body.appendChild(successMsg);
+    }
+    setTimeout(() => {
+      successMsg.style.opacity = 0;
+      setTimeout(() => {
+        successMsg.remove();
+      }, 500);
+    }, 3000);
+  });
+}
+
+function copyDecrypted() {
+  const noteContent = document.querySelector('.note-content');
+  if (noteContent) {
+    navigator.clipboard.writeText(noteContent.innerText).then(() => {
+      const successMsg = document.createElement('div');
+      successMsg.className = 'copy-success';
+      successMsg.textContent = '✅ Đã sao chép!';
+      const decryptedResult = document.getElementById('decryptedResult');
+      if (decryptedResult) {
+        decryptedResult.appendChild(successMsg);
+      } else {
+        document.body.appendChild(successMsg);
+      }
+      setTimeout(() => {
+        successMsg.style.opacity = 0;
+        setTimeout(() => {
+          successMsg.remove();
+        }, 500);
+      }, 3000);
+    });
+  } else {
+    alert("❌ Không có nội dung để sao chép.");
+  }
 }
 
 function validatePriceInput(input) {
