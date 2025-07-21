@@ -108,10 +108,96 @@ button:hover {
 #decryptedResult {
   margin-top: 15px;
   background: #222;
-  padding: 12px;
+  padding: 8px;
   border-radius: 8px;
   border: 1px solid #444;
   color: #eee;
   white-space: pre-wrap;
   word-break: break-word;
+  text-align: center;
+  min-height: auto;
+}
+
+.success-border {
+  border: 2px solid #00ff00;
+  box-shadow: 0 0 15px #00ff00;
+  animation: pulse-green 1.5s infinite; /* Sửa ở đây: Viền xanh rực rỡ pulse */
+}
+
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 5px #00ff00; }
+  50% { box-shadow: 0 0 20px #00ff00; }
+}
+
+.error-border {
+  border: 2px solid #ff0000;
+  box-shadow: 0 0 15px #ff0000;
+  animation: pulse-red 1.5s infinite;
+}
+
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 5px #ff0000; }
+  50% { box-shadow: 0 0 20px #ff0000; }
+}
+
+#successMsg {
+  color: #00ff00;
+  font-weight: bold;
+  text-align: center;
+  animation: fadeIn 0.5s;
+  transition: opacity 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.frozen-note {
+  user-select: text;
+  cursor: copy;
+}
+
+.note-label {
+  text-align: center;
+  font-size: 14px;
+  color: #888;
+  opacity: 0.6;
+  margin-bottom: 10px;
+  font-weight: normal;
+}
+
+.note-content {
+  text-align: center;
+  color: #fff;
+  font-size: 16px;
+  word-break: break-word;
+}
+
+.error-title {
+  text-align: center;
+  font-size: 18px;
+  color: #ff0000;
+  margin-bottom: 3px;
+}
+
+.error-detail {
+  text-align: center;
+  font-size: 13px;
+  color: #ddd;
+  margin: 2px 0;
+}
+
+.icon {
+  font-size: 15px;
+  margin-right: 3px;
+}
+
+.blink {
+  animation: blink-red 2s linear infinite;
+}
+
+@keyframes blink-red {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
