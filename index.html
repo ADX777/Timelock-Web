@@ -86,14 +86,15 @@
     <label>📝 Ghi chú:</label>
     <textarea id="noteInput" placeholder="Nhập ghi chú..."></textarea>
 
-    <label>💴 Cặp coin:</label>
+    <label>💴 ₿ Mã Crypto - Forex:</label>
     <input id="coinInput" placeholder="VD: BTCUSDT" oninput="suggestCoins()" autocomplete="off"/>
     <div id="coinSuggestions" class="suggestions"></div>
 
     <div id="livePrice" class="price-display"></div>
 
     <label>💰 Giá kỳ vọng:</label>
-    <input id="targetPrice" oninput="validatePriceInput(this)" placeholder="VD: 120000.5"/>
+    <input id="targetPrice" oninput="validatePriceInput(this)" placeholder="Giá cao hơn" style="color: #888; opacity: 0.6;"/>
+    <input id="minPrice" oninput="validatePriceInput(this)" placeholder="Giá thấp hơn hiện tại (tùy chọn)" style="color: #888; opacity: 0.6;"/>
 
     <label>⏰ Thời gian mở khóa:</label>
     <input type="datetime-local" id="unlockTime"/>
