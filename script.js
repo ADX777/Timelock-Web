@@ -1,7 +1,7 @@
 let allCoins = [];
 
-const alphaKey = 'demo';
-const twelveKey = 'demo';
+const alphaKey = '58M61D2ZINADHSE2';
+const twelveKey = '7f6d53f6d70e4c0e803d8efd66fb32f3';
 
 async function loadCoinList() {
   try {
@@ -14,6 +14,7 @@ async function loadCoinList() {
     allCoins = allCoins.filter(symbol => !forexBases.includes(symbol.slice(0, -4)));
     allCoins.push('EUR/USD', 'GBP/USD', 'USD/JPY', 'XAU/USD');
     allCoins.push('EUR/JPY', 'GBP/JPY', 'EUR/GBP', 'EUR/CAD', 'EUR/AUD', 'EUR/NZD', 'GBP/AUD', 'GBP/CAD', 'NZD/CAD', 'USD/CAD', 'USD/CHF');
+    allCoins.push('AUD/USD', 'AUD/NZD', 'AUD/CAD', 'AUD/JPY', 'NZD/USD', 'NZD/JPY');
     allCoins.sort();
   } catch (e) {
     console.error("❌ Không lấy được danh sách coin từ Binance", e);
@@ -21,21 +22,53 @@ async function loadCoinList() {
 }
 loadCoinList();
 
-function suggestCoins() {
+async function suggestCoins() {
   const input = document.getElementById("coinInput").value.toUpperCase();
   const suggestions = document.getElementById("coinSuggestions");
   suggestions.innerHTML = "";
   if (!input) return;
 
-  const matches = allCoins.filter(c => c.startsWith(input)).slice(0, 10);
-  matches.forEach(match => {
+  let matches = allCoins.filter(c => c.startsWith(input));
+
+  let cryptoMatches = matches.filter(c => c.endsWith('USDT'));
+  let forexMatches = matches.filter(c => c.includes('/'));
+
+  let sortedForex = forexMatches.sort();
+
+  let sortedCrypto = cryptoMatches;
+
+  if (cryptoMatches.length > 0) {
+    try {
+      const res = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1');
+      const data = await res.json();
+      const rankMap = new Map();
+      data.forEach(coin => {
+        const symbolUpper = (coin.symbol.toUpperCase() + 'USDT');
+        rankMap.set(symbolUpper, coin.market_cap_rank);
+      });
+      sortedCrypto = cryptoMatches.sort((a, b) => {
+        const rankA = rankMap.get(a) ?? Infinity;
+        const rankB = rankMap.get(b) ?? Infinity;
+        if (rankA === rankB) return a.localeCompare(b);
+        return rankA - rankB;
+      });
+    } catch (e) {
+      sortedCrypto = cryptoMatches.sort();
+    }
+  }
+
+  const sortedMatches = [...sortedCrypto, ...sortedForex];
+  const top10 = sortedMatches.slice(0, 10);
+
+  top10.forEach(match => {
     const div = document.createElement("div");
     div.textContent = match;
-    div.onclick = () => {
+    div.addEventListener('click', () => {
+      console.log("Clicked on: " + match);
       document.getElementById("coinInput").value = match;
       suggestions.innerHTML = "";
       fetchPrice();
-    };
+    });
     suggestions.appendChild(div);
   });
 }
@@ -54,6 +87,43 @@ async function fetchWithRetry(url, retries = 3, delay = 1000) {
     }
   }
   return null;
+}
+
+async function getPrice(coin) {
+  coin = coin.trim().toUpperCase();
+  if (coin.includes('/')) {
+    const [from, to] = coin.split('/');
+    let price = null;
+    const alphaUrl = `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${from}&to_currency=${to}&apikey=${alphaKey}`;
+    const alphaRes = await fetchWithRetry(alphaUrl);
+    if (alphaRes) {
+      try {
+        const data = await alphaRes.json();
+        price = data['Realtime Currency Exchange Rate']?.['5. Exchange Rate'];
+        if (price) return parseFloat(price);
+      } catch {}
+    }
+    const twelveUrl = `https://api.twelvedata.com/price?symbol=${coin}&apikey=${twelveKey}`;
+    const twelveRes = await fetchWithRetry(twelveUrl);
+    if (twelveRes) {
+      try {
+        const data = await twelveRes.json();
+        price = data.price;
+        if (price) return parseFloat(price);
+      } catch {}
+    }
+    return 0;
+  } else if (coin.endsWith("USDT")) {
+    try {
+      const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${coin}`);
+      const data = await res.json();
+      return data.price ? parseFloat(data.price) : 0;
+    } catch {
+      return 0;
+    }
+  } else {
+    return 0;
+  }
 }
 
 async function fetchPrice() {
@@ -96,7 +166,7 @@ async function fetchPrice() {
       const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${coin}`);
       const data = await res.json();
       document.getElementById("livePrice").textContent = data.price
-        ? `💹 Giá hiện tại: ${parseFloat(data.price).toFixed(2)} USDT`
+        ? `💹 Giá hiện tại: ${parseFloat(data.price) < 0.001 ? parseFloat(data.price).toFixed(8) : parseFloat(data.price).toFixed(3)} USDT`
         : "❌ Không lấy được giá từ Binance.";
     } catch {
       document.getElementById("livePrice").textContent = "⚠️ Lỗi kết nối với Binance.";
@@ -130,24 +200,26 @@ async function sha256Bytes(msg) {
 async function encrypt() {
   const note = document.getElementById("noteInput").value;
   const coin = document.getElementById("coinInput").value.toUpperCase();
-  const price = document.getElementById("targetPrice").value;
-  const unlockLocalString = document.getElementById("unlockTime").value;
+  const priceInput = document.getElementById("targetPrice").value.trim();
+  const minInput = document.getElementById("minPrice").value.trim();
+  const unlockLocalString = document.getElementById("unlockTime").value.trim();
 
-  if (!/^\d+(\.\d+)?$/.test(price)) {
-    alert("❌ Giá kỳ vọng không hợp lệ. Vui lòng chỉ nhập số hoặc số thập phân.");
-    return;
+  const currentPrice = await getPrice(coin);
+
+  let price = null;
+  if (priceInput) {
+    price = parseFloat(priceInput);
   }
 
-  const now = await getBinanceTime();
-  const unlockDate = new Date(unlockLocalString);
-  const timeUTC = unlockDate.toISOString();
+  let minPrice = null;
+  if (minInput) {
+    minPrice = parseFloat(minInput);
+  }
 
-  const unlockInput = document.getElementById("unlockTime");
-  if (!now || isNaN(unlockDate.getTime()) || unlockDate <= now) {
-    unlockInput.classList.add("note-invalid");
-    return;
-  } else {
-    unlockInput.classList.remove("note-invalid");
+  let timeUTC = null;
+  if (unlockLocalString) {
+    const unlockDate = new Date(unlockLocalString);
+    timeUTC = unlockDate.toISOString();
   }
 
   const encoder = new TextEncoder();
@@ -159,7 +231,7 @@ async function encrypt() {
   const aesKey1 = await crypto.subtle.importKey("raw", key1, { name: "AES-CBC" }, false, ["encrypt"]);
   const cipher1Buf = await crypto.subtle.encrypt({ name: "AES-CBC", iv: iv1 }, aesKey1, encoder.encode(note));
 
-  const key2Raw = `${coin}|${price}|${timeUTC}|${btoa(String.fromCharCode(...salt))}`;
+  const key2Raw = `${coin}|${priceInput}|${minInput}|${timeUTC || ''}|${btoa(String.fromCharCode(...salt))}`;
   const key2Hash = await sha256Bytes(key2Raw);
   const aesKey2 = await crypto.subtle.importKey("raw", key2Hash, { name: "AES-CBC" }, false, ["encrypt"]);
   const cipher2Buf = await crypto.subtle.encrypt({ name: "AES-CBC", iv: iv2 }, aesKey2, key1);
@@ -170,10 +242,12 @@ async function encrypt() {
     iv1: btoa(String.fromCharCode(...iv1)),
     iv2: btoa(String.fromCharCode(...iv2)),
     salt: btoa(String.fromCharCode(...salt)),
-    coin,
-    price,
-    time: timeUTC
+    coin
   };
+
+  if (priceInput) payload.price = priceInput;
+  if (minInput) payload.minPrice = minInput;
+  if (timeUTC) payload.time = timeUTC;
 
   payload.sig = await sha256(JSON.stringify(payload));
   const encryptedText = `ENC[${btoa(JSON.stringify(payload))}]`;
@@ -197,46 +271,71 @@ async function decrypt() {
     }
 
     const payload = JSON.parse(atob(input.slice(4, -1)));
-    const { cipher1, cipher2, iv1, iv2, salt, coin, price, time, sig } = payload;
+    const { cipher1, cipher2, iv1, iv2, salt, coin, price, minPrice, time, sig } = payload;
 
-    const verifySig = await sha256(JSON.stringify({ cipher1, cipher2, iv1, iv2, salt, coin, price, time }));
+    let tempPayload = { cipher1, cipher2, iv1, iv2, salt, coin };
+    if (price) tempPayload.price = price;
+    if (minPrice) tempPayload.minPrice = minPrice;
+    if (time) tempPayload.time = time;
+    const verifySig = await sha256(JSON.stringify(tempPayload));
     if (verifySig !== sig) {
       resultElement.textContent = "❌ Mã đã bị chỉnh sửa.";
       return;
     }
 
-    const priceVal = parseFloat(price);
-    const unlockTs = new Date(time).getTime();
+    const priceVal = price ? parseFloat(price) : null;
+    const minPriceVal = minPrice ? parseFloat(minPrice) : null;
+    const unlockTs = time ? new Date(time).getTime() : null;
     const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     const data = await getPricesAndTimes(coin);
 
-    const priceOK = checkPriceConditions(data, priceVal, coin);
-    const timeResult = await checkTimeConditions(unlockTs);
+    const priceOK = checkPriceConditions(data, priceVal, minPriceVal, coin);
 
-    if (timeResult.allFailed) {
+    let timeResult = null;
+    if (unlockTs !== null) {
+      timeResult = await checkTimeConditions(unlockTs);
+    } else {
+      timeResult = { ok: false, allFailed: false };
+    }
+
+    if (timeResult.allFailed && unlockTs !== null) {
       resultElement.innerHTML = "⚠️ Không kết nối server thời gian, thử lại sau.";
       return;
     }
 
-    const timeOK = timeResult.ok;
+    const timeOK = unlockTs !== null ? timeResult.ok : false;
 
     if (!priceOK && !timeOK) {
       const coinPair = coin.replace("USDT", "/USDT");
-      const formattedPrice = parseFloat(price).toLocaleString("vi-VN");
-      const formattedDate = new Date(time).toLocaleString("vi-VN", { timeZone: userTimeZone, hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+
+      let msgContent = '';
+
+      if (priceVal !== null) {
+        const formattedPrice = parseFloat(price).toLocaleString("vi-VN");
+        msgContent += `<div class="error-detail"><span class="icon">💰</span> ${coinPair} < ${formattedPrice}$</div>`;
+      }
+
+      if (minPriceVal !== null) {
+        const formattedMin = parseFloat(minPrice).toLocaleString("vi-VN");
+        msgContent += `<div class="error-detail"><span class="icon">💰</span> ${coinPair} > ${formattedMin}$</div>`;
+      }
+
+      if (unlockTs !== null) {
+        const formattedDate = new Date(time).toLocaleString("vi-VN", { timeZone: userTimeZone, hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+        msgContent += `<div class="error-detail"><span class="icon">⏰</span> Thời gian < ${formattedDate}</div>`;
+      }
 
       const msg = `
         <div class="error-title blink">Giải mã không thành công</div>
-        <div class="error-detail"><span class="icon">💰</span> ${coinPair} < ${formattedPrice}$</div>
-        <div class="error-detail"><span class="icon">⏰</span> Thời gian < ${formattedDate}</div>
+        ${msgContent}
       `;
       resultElement.innerHTML = msg;
       resultElement.classList.add('error-border');
       return;
     }
 
-    const key2Raw = `${coin}|${price}|${time}|${salt}`;
+    const key2Raw = `${coin}|${price || ''}|${minPrice || ''}|${time || ''}|${salt}`;
     const key2Hash = await sha256Bytes(key2Raw);
     const aesKey2 = await crypto.subtle.importKey("raw", key2Hash, { name: "AES-CBC" }, false, ["decrypt"]);
     const key1Buf = await crypto.subtle.decrypt(
@@ -254,7 +353,7 @@ async function decrypt() {
 
     const note = new TextDecoder().decode(noteBuf);
     resultElement.innerHTML = `<div class="note-label">Ghi chú:</div><div class="note-content">${note}</div>`;
-    resultElement.classList.add('success-border'); // Sửa ở đây: Chuyển từ error-border sang success-border khi thành công
+    resultElement.classList.add('success-border');
     const successMsg = document.createElement('div');
     successMsg.id = 'successMsg';
     successMsg.textContent = 'Giải mã thành công';
@@ -274,24 +373,6 @@ async function decrypt() {
   }
 }
 
-function showPaymentPopup() {
-  validateUnlockTime().then(valid => {
-    if (!valid) return;
-    const unlock = new Date(document.getElementById("unlockTime").value);
-    const now = new Date();
-    let days = Math.ceil((unlock - now) / (1000 * 60 * 60 * 24));
-    if (isNaN(days) || days < 1) days = 1;
-    const amount = (days * 0.5).toFixed(2);
-    document.getElementById("paymentAmount").textContent = `${amount} USDT`;
-
-    document.getElementById("paymentOverlay").style.display = "flex";
-    setTimeout(() => {
-      document.getElementById("paymentOverlay").style.display = "none";
-      encrypt();
-    }, 8000);
-  });
-}
-
 async function validateUnlockTime() {
   const unlockInput = document.getElementById("unlockTime");
   const now = await getBinanceTime();
@@ -299,10 +380,10 @@ async function validateUnlockTime() {
   const isValid = now && unlockTime > now;
 
   if (!isValid) {
-    unlockInput.classList.add("note-invalid");
+    unlockInput.classList.add("error-border");
     return false;
   } else {
-    unlockInput.classList.remove("note-invalid");
+    unlockInput.classList.remove("error-border");
     return true;
   }
 }
@@ -335,7 +416,7 @@ function copyDecrypted() {
       const successMsg = document.createElement('div');
       successMsg.className = 'copy-success';
       successMsg.textContent = '✅ Đã sao chép!';
-      const decryptedResult = document.getElementById('decryptedResult');
+      const decryptedResult = document.getElementById("decryptedResult");
       if (decryptedResult) {
         decryptedResult.appendChild(successMsg);
       } else {
@@ -366,7 +447,6 @@ function validatePriceInput(input) {
   input.value = value;
 }
 
-// ✅ Các hàm hỗ trợ logic kiểm tra giá & thời gian
 async function getPricesAndTimes(coin) {
   if (coin.includes('/')) {
     const [from, to] = coin.split('/');
@@ -447,10 +527,72 @@ async function getPricesAndTimes(coin) {
   }
 }
 
-function checkPriceConditions(data, targetPrice, coin) {
+function checkPriceConditions(data, targetPrice, minPrice, coin) {
   const good = data.filter(d => d.price != null && !isNaN(d.price));
   if (good.length < 1) return false;
-  return good.some(d => d.price >= targetPrice);
+
+  let highOK = targetPrice !== null ? good.some(d => d.price >= targetPrice) : false;
+  let lowOK = minPrice !== null ? good.some(d => d.price <= minPrice) : false;
+
+  return highOK || lowOK;
+}
+
+async function getTrustedTimes() {
+  const sources = [
+    {
+      name: 'WorldTimeAPI',
+      url: 'http://worldtimeapi.org/api/timezone/Etc/UTC',
+      parse: async (res) => {
+        const data = await res.json();
+        return new Date(data.utc_datetime).getTime();
+      }
+    },
+    {
+      name: 'NIST',
+      url: 'https://www.nist.gov/',
+      parse: (res) => new Date(res.headers.get('Date')).getTime(),
+      method: 'HEAD'
+    },
+    {
+      name: 'Binance',
+      url: 'https://api.binance.com/api/v3/time',
+      parse: async (res) => {
+        const data = await res.json();
+        return data.serverTime;
+      }
+    }
+  ];
+
+  async function fetchWithRetry(src, retries = 3, delay = 1000) {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const res = await fetch(src.url, { method: src.method || 'GET' });
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return res;
+      } catch (e) {
+        console.error(`Error fetching ${src.name}: ${e}`);
+        if (i < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+    return null;
+  }
+
+  const results = await Promise.all(sources.map(async (src) => {
+    const res = await fetchWithRetry(src);
+    if (!res) return null;
+    try {
+      const timestamp = await src.parse(res);
+      if (isNaN(timestamp)) return null;
+      return { source: src.name, timestamp };
+    } catch {
+      return null;
+    }
+  }));
+
+  const validTimes = results.filter(t => t !== null);
+  return validTimes.length > 0 ? validTimes : null;
 }
 
 async function getTrustedTimes() {
@@ -523,4 +665,86 @@ async function checkTimeConditions(unlockTs) {
     const ok = meeting >= 2;
     return { ok, fallback: false, allFailed: false };
   }
+}
+
+async function showPaymentPopup() {
+  const note = document.getElementById("noteInput").value.trim();
+  const coin = document.getElementById("coinInput").value.trim().toUpperCase();
+  const priceInput = document.getElementById("targetPrice").value.trim();
+  const minInput = document.getElementById("minPrice").value.trim();
+  const unlockLocalString = document.getElementById("unlockTime").value.trim();
+
+  if (note === '') {
+    document.getElementById("noteInput").classList.add("error-border");
+    alert("❌ Không có gì để mã hóa.");
+    return;
+  }
+
+  if (unlockLocalString === '') {
+    document.getElementById("unlockTime").classList.add("error-border");
+    alert("❌ Phải điền thời gian mở khóa.");
+    return;
+  }
+
+  if (coin !== '') {
+    if (priceInput === '') {
+      document.getElementById("targetPrice").classList.add("error-border");
+      alert("❌ Phải điền giá cao hơn khi có cặp tiền.");
+      return;
+    }
+  }
+
+  const currentPrice = await getPrice(coin);
+  if (currentPrice === 0 && (priceInput || minInput)) {
+    alert("❌ Không lấy được giá hiện tại.");
+    return;
+  }
+
+  if (priceInput) {
+    if (!/^\d+(\.\d+)?$/.test(priceInput)) {
+      document.getElementById("targetPrice").classList.add("error-border");
+      alert("❌ Giá kỳ vọng không hợp lệ. Vui lòng chỉ nhập số hoặc số thập phân.");
+      return;
+    }
+    const price = parseFloat(priceInput);
+    if (price <= currentPrice) {
+      document.getElementById("targetPrice").classList.add("error-border");
+      alert("❌ Giá cao hơn phải lớn hơn giá hiện tại.");
+      return;
+    }
+  }
+
+  if (minInput) {
+    if (!/^\d+(\.\d+)?$/.test(minInput)) {
+      document.getElementById("minPrice").classList.add("error-border");
+      alert("❌ Giá thấp hơn không hợp lệ. Vui lòng chỉ nhập số hoặc số thập phân.");
+      return;
+    }
+    const minPrice = parseFloat(minInput);
+    if (minPrice >= currentPrice) {
+      document.getElementById("minPrice").classList.add("error-border");
+      alert("❌ Giá thấp hơn phải nhỏ hơn giá hiện tại.");
+      return;
+    }
+  }
+
+  const now = await getBinanceTime();
+  const unlock = new Date(unlockLocalString);
+  if (!now || isNaN(unlock.getTime()) || unlock <= now) {
+    document.getElementById("unlockTime").classList.add("error-border");
+    return;
+  } else {
+    document.getElementById("unlockTime").classList.remove("error-border");
+  }
+
+  const days = Math.ceil((unlock - new Date()) / (1000 * 60 * 60 * 24));
+  const amount = (Math.max(days, 1) * 0.5).toFixed(2);
+  document.getElementById("paymentAmount").textContent = `${amount} USDT`;
+
+  document.getElementById("paymentOverlay").style.display = "flex";
+
+  setTimeout(() => {
+    document.getElementById("paymentOverlay").style.display = "none";
+    encrypt();
+  }, 8000);
 }
