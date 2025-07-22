@@ -3,6 +3,8 @@ let allCoins = [];
 const alphaKey = '58M61D2ZINADHSE2';
 const twelveKey = '7f6d53f6d70e4c0e803d8efd66fb32f3';
 
+let hasNoteError = false;
+
 async function loadCoinList() {
   try {
     const res = await fetch("https://api.binance.com/api/v3/exchangeInfo");
@@ -17,7 +19,18 @@ async function loadCoinList() {
     allCoins.push('AUD/USD', 'AUD/NZD', 'AUD/CAD', 'AUD/JPY', 'NZD/USD', 'NZD/JPY');
     allCoins.sort();
   } catch (e) {
-    console.error("❌ Không lấy được danh sách coin từ Binance", e);
+    try {
+      const res = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1');
+      const data = await res.json();
+      allCoins = data.map(coin => coin.symbol.toUpperCase() + 'USDT');
+      const forexBases = ['EUR', 'GBP', 'USD', 'JPY', 'CAD', 'AUD', 'NZD', 'CHF', 'XAU'];
+      allCoins = allCoins.filter(symbol => !forexBases.includes(symbol.slice(0, -4)));
+      allCoins.push('EUR/USD', 'GBP/USD', 'USD/JPY', 'XAU/USD');
+      allCoins.push('EUR/JPY', 'GBP/JPY', 'EUR/GBP', 'EUR/CAD', 'EUR/AUD', 'EUR/NZD', 'GBP/AUD', 'GBP/CAD', 'NZD/CAD', 'USD/CAD', 'USD/CHF');
+      allCoins.push('AUD/USD', 'AUD/NZD', 'AUD/CAD', 'AUD/JPY', 'NZD/USD', 'NZD/JPY');
+      allCoins.sort();
+    } catch (innerE) {
+    }
   }
 }
 loadCoinList();
@@ -252,6 +265,7 @@ async function encrypt() {
   payload.sig = await sha256(JSON.stringify(payload));
   const encryptedText = `ENC[${btoa(JSON.stringify(payload))}]`;
   document.getElementById("encryptedOutput").value = encryptedText;
+  document.getElementById("encryptedOutput").classList.add('frozen-effect');
 }
 
 async function decrypt() {
@@ -429,8 +443,6 @@ function copyDecrypted() {
         }, 500);
       }, 3000);
     });
-  } else {
-    alert("❌ Không có nội dung để sao chép.");
   }
 }
 
@@ -595,64 +607,6 @@ async function getTrustedTimes() {
   return validTimes.length > 0 ? validTimes : null;
 }
 
-async function getTrustedTimes() {
-  const sources = [
-    {
-      name: 'WorldTimeAPI',
-      url: 'http://worldtimeapi.org/api/timezone/Etc/UTC',
-      parse: async (res) => {
-        const data = await res.json();
-        return new Date(data.utc_datetime).getTime();
-      }
-    },
-    {
-      name: 'NIST',
-      url: 'https://www.nist.gov/',
-      parse: (res) => new Date(res.headers.get('Date')).getTime(),
-      method: 'HEAD'
-    },
-    {
-      name: 'Binance',
-      url: 'https://api.binance.com/api/v3/time',
-      parse: async (res) => {
-        const data = await res.json();
-        return data.serverTime;
-      }
-    }
-  ];
-
-  async function fetchWithRetry(src, retries = 3, delay = 1000) {
-    for (let i = 0; i < retries; i++) {
-      try {
-        const res = await fetch(src.url, { method: src.method || 'GET' });
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res;
-      } catch (e) {
-        console.error(`Error fetching ${src.name}: ${e}`);
-        if (i < retries - 1) {
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-      }
-    }
-    return null;
-  }
-
-  const results = await Promise.all(sources.map(async (src) => {
-    const res = await fetchWithRetry(src);
-    if (!res) return null;
-    try {
-      const timestamp = await src.parse(res);
-      if (isNaN(timestamp)) return null;
-      return { source: src.name, timestamp };
-    } catch {
-      return null;
-    }
-  }));
-
-  const validTimes = results.filter(t => t !== null);
-  return validTimes.length > 0 ? validTimes : null;
-}
-
 async function checkTimeConditions(unlockTs) {
   const times = await getTrustedTimes();
   if (times === null) {
@@ -667,6 +621,9 @@ async function checkTimeConditions(unlockTs) {
   }
 }
 
+let countdownInterval;
+let timeoutTimer;
+
 async function showPaymentPopup() {
   const note = document.getElementById("noteInput").value.trim();
   const coin = document.getElementById("coinInput").value.trim().toUpperCase();
@@ -674,56 +631,64 @@ async function showPaymentPopup() {
   const minInput = document.getElementById("minPrice").value.trim();
   const unlockLocalString = document.getElementById("unlockTime").value.trim();
 
+  // Remove existing error borders
+  document.getElementById("noteInput").classList.remove("error-border");
+  document.getElementById("coinInput").classList.remove("error-border");
+  document.getElementById("targetPrice").classList.remove("error-border");
+  document.getElementById("minPrice").classList.remove("error-border");
+  document.getElementById("unlockTime").classList.remove("error-border");
+
   if (note === '') {
     document.getElementById("noteInput").classList.add("error-border");
-    alert("❌ Không có gì để mã hóa.");
+    hasNoteError = true;
     return;
   }
 
   if (unlockLocalString === '') {
     document.getElementById("unlockTime").classList.add("error-border");
-    alert("❌ Phải điền thời gian mở khóa.");
     return;
   }
 
-  if (coin !== '') {
-    if (priceInput === '') {
+  if (coin === '') {
+    document.getElementById("coinInput").classList.add("error-border");
+    return;
+  }
+
+  if (!allCoins.includes(coin)) {
+    document.getElementById("coinInput").classList.add("error-border");
+    return;
+  }
+
+  const isCoinValid = coin !== '' && allCoins.includes(coin);
+
+  if (isCoinValid) {
+    if (priceInput === '' && minInput === '') {
       document.getElementById("targetPrice").classList.add("error-border");
-      alert("❌ Phải điền giá cao hơn khi có cặp tiền.");
+      document.getElementById("minPrice").classList.add("error-border");
       return;
     }
   }
 
-  const currentPrice = await getPrice(coin);
-  if (currentPrice === 0 && (priceInput || minInput)) {
-    alert("❌ Không lấy được giá hiện tại.");
-    return;
-  }
-
-  if (priceInput) {
-    if (!/^\d+(\.\d+)?$/.test(priceInput)) {
-      document.getElementById("targetPrice").classList.add("error-border");
-      alert("❌ Giá kỳ vọng không hợp lệ. Vui lòng chỉ nhập số hoặc số thập phân.");
+  let currentPrice = 0;
+  if (isCoinValid && (priceInput || minInput)) {
+    currentPrice = await getPrice(coin);
+    if (currentPrice === 0) {
       return;
     }
+  }
+
+  if (priceInput && isCoinValid) {
     const price = parseFloat(priceInput);
     if (price <= currentPrice) {
       document.getElementById("targetPrice").classList.add("error-border");
-      alert("❌ Giá cao hơn phải lớn hơn giá hiện tại.");
       return;
     }
   }
 
-  if (minInput) {
-    if (!/^\d+(\.\d+)?$/.test(minInput)) {
-      document.getElementById("minPrice").classList.add("error-border");
-      alert("❌ Giá thấp hơn không hợp lệ. Vui lòng chỉ nhập số hoặc số thập phân.");
-      return;
-    }
+  if (minInput && isCoinValid) {
     const minPrice = parseFloat(minInput);
     if (minPrice >= currentPrice) {
       document.getElementById("minPrice").classList.add("error-border");
-      alert("❌ Giá thấp hơn phải nhỏ hơn giá hiện tại.");
       return;
     }
   }
@@ -743,8 +708,145 @@ async function showPaymentPopup() {
 
   document.getElementById("paymentOverlay").style.display = "flex";
 
+  let remainingTime = 15 * 60; // 15 minutes in seconds
+  const countdownElement = document.getElementById("countdown");
+  countdownInterval = setInterval(() => {
+    if (remainingTime <= 0) {
+      clearInterval(countdownInterval);
+      paymentFailed();
+      return;
+    }
+    const minutes = Math.floor(remainingTime / 60);
+    const seconds = remainingTime % 60;
+    countdownElement.textContent = `Còn ${minutes} phút ${seconds} giây`;
+    remainingTime--;
+  }, 1000);
+
+  timeoutTimer = setTimeout(paymentFailed, 15 * 60 * 1000);
+}
+
+function paymentFailed() {
+  clearInterval(countdownInterval);
+  const statusElement = document.getElementById("paymentStatus");
+  statusElement.innerHTML = '❌ Mã hóa thất bại';
+  statusElement.style.color = '#ff0000';
   setTimeout(() => {
     document.getElementById("paymentOverlay").style.display = "none";
-    encrypt();
-  }, 8000);
+  }, 3000);
 }
+
+function confirmPayment() {
+  clearInterval(countdownInterval);
+  clearTimeout(timeoutTimer);
+  encrypt();
+  const statusElement = document.getElementById("paymentStatus");
+  statusElement.innerHTML = '✅ Mã hóa thành công';
+  statusElement.style.color = '#00ff00';
+  setTimeout(() => {
+    document.getElementById("paymentOverlay").style.display = "none";
+  }, 5000);
+}
+
+function copyWallet() {
+  const address = '0xcE6320183252CD965a70D4a9B6F30D2877a2188E';
+  navigator.clipboard.writeText(address).then(() => {
+    const successMsg = document.createElement('div');
+    successMsg.className = 'copy-success';
+    successMsg.textContent = '✅ Đã sao chép!';
+    document.querySelector('.wallet').appendChild(successMsg);
+    setTimeout(() => {
+      successMsg.style.opacity = 0;
+      setTimeout(() => {
+        successMsg.remove();
+      }, 500);
+    }, 3000);
+  });
+}
+
+function validateNote() {
+  const input = document.getElementById("noteInput");
+  const value = input.value.trim();
+  input.classList.remove("error-border", "success-border");
+  if (value !== '' && hasNoteError) {
+    input.classList.add("success-border");
+  }
+}
+
+function validateCoin() {
+  const input = document.getElementById("coinInput");
+  const value = input.value.trim().toUpperCase();
+  input.classList.remove("error-border", "success-border");
+  if (value !== '' && allCoins.includes(value)) {
+    input.classList.add("success-border");
+  } else if (value !== '') {
+    // Không add error ở đây, chỉ khi ấn
+  }
+}
+
+async function validateTargetPrice() {
+  const input = document.getElementById("targetPrice");
+  const value = input.value.trim();
+  const coin = document.getElementById("coinInput").value.trim().toUpperCase();
+  input.classList.remove("error-border", "success-border");
+  if (value === '' || !allCoins.includes(coin)) return;
+  const currentPrice = await getPrice(coin);
+  if (currentPrice === 0) return;
+  const price = parseFloat(value);
+  if (price > currentPrice) {
+    input.classList.add("success-border");
+    document.getElementById("minPrice").classList.remove("error-border");
+  }
+}
+
+async function validateMinPrice() {
+  const input = document.getElementById("minPrice");
+  const value = input.value.trim();
+  const coin = document.getElementById("coinInput").value.trim().toUpperCase();
+  input.classList.remove("error-border", "success-border");
+  if (value === '' || !allCoins.includes(coin)) return;
+  const currentPrice = await getPrice(coin);
+  if (currentPrice === 0) return;
+  const minPrice = parseFloat(value);
+  if (minPrice < currentPrice) {
+    input.classList.add("success-border");
+    document.getElementById("targetPrice").classList.remove("error-border");
+  }
+}
+
+async function validateUnlock() {
+  const input = document.getElementById("unlockTime");
+  const value = input.value.trim();
+  input.classList.remove("error-border", "success-border");
+  if (value === '') return;
+  const now = await getBinanceTime();
+  const unlock = new Date(value);
+  if (now && !isNaN(unlock.getTime()) && unlock > now) {
+    input.classList.add("success-border");
+  }
+}
+
+// Add event listeners
+document.addEventListener("DOMContentLoaded", () => {
+  const noteInput = document.getElementById("noteInput");
+  noteInput.addEventListener("input", () => {
+    noteInput.value = noteInput.value.replace(/[^a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/? ]/g, '');
+    validateNote();
+  });
+  noteInput.addEventListener("blur", validateNote);
+
+  const coinInput = document.getElementById("coinInput");
+  coinInput.addEventListener("input", validateCoin);
+  coinInput.addEventListener("blur", validateCoin);
+
+  const targetPrice = document.getElementById("targetPrice");
+  targetPrice.addEventListener("input", validateTargetPrice);
+  targetPrice.addEventListener("blur", validateTargetPrice);
+
+  const minPrice = document.getElementById("minPrice");
+  minPrice.addEventListener("input", validateMinPrice);
+  minPrice.addEventListener("blur", validateMinPrice);
+
+  const unlockTime = document.getElementById("unlockTime");
+  unlockTime.addEventListener("input", validateUnlock);
+  unlockTime.addEventListener("blur", validateUnlock);
+});
