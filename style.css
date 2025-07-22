@@ -90,7 +90,7 @@ button:hover {
   max-height: 150px;
   overflow-y: auto;
   position: absolute;
-  z-index: 1000;
+  z-index: 1001;
   width: 100%;
   border-radius: 6px;
   pointer-events: auto;
@@ -123,23 +123,11 @@ button:hover {
 .success-border {
   border: 2px solid #00ff00;
   box-shadow: 0 0 15px #00ff00;
-  animation: pulse-green 1.5s infinite;
-}
-
-@keyframes pulse-green {
-  0%, 100% { box-shadow: 0 0 5px #00ff00; }
-  50% { box-shadow: 0 0 20px #00ff00; }
 }
 
 .error-border {
   border: 2px solid #ff0000;
   box-shadow: 0 0 15px #ff0000;
-  animation: pulse-red 1.5s infinite;
-}
-
-@keyframes pulse-red {
-  0%, 100% { box-shadow: 0 0 5px #ff0000; }
-  50% { box-shadow: 0 0 20px #ff0000; }
 }
 
 #successMsg {
@@ -212,4 +200,74 @@ button:hover {
   transition: opacity 0.5s ease-out;
   margin-top: 10px;
   position: relative;
+}
+
+input::placeholder {
+  font-size: smaller;
+  opacity: 0.7;
+}
+
+#targetPrice, #minPrice {
+  color: white;
+}
+
+.frozen-effect {
+  box-shadow: 0 0 10px rgba(173, 216, 230, 0.5);
+  animation: pulse-blue 2s infinite;
+}
+
+@keyframes pulse-blue {
+  0% {
+    box-shadow: 0 0 0 rgba(173, 216, 230, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(173, 216, 230, 1);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(173, 216, 230, 0.5);
+  }
+}
+
+#noteInput {
+  min-height: 144px;
+}
+
+#decryptionInput {
+  min-height: 132px;
+}
+
+.payment-amount {
+  text-align: center;
+  font-weight: bold;
+  margin: 10px 0;
+}
+
+.countdown {
+  text-align: center;
+  color: #ffd700;
+  margin-bottom: 10px;
+}
+
+.payment-status {
+  text-align: center;
+  font-size: 18px;
+  margin-top: 10px;
+}
+
+.copy-btn {
+  background: transparent;
+  border: none;
+  color: #ffd700;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
+  margin-left: 5px;
+}
+
+.qr {
+  margin: 20px auto;
+  padding: 10px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
 }
