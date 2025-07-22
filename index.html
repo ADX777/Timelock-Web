@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>🔐 TimeLock Ghi Chú</title>
+  <title>🔐 Timelock Crypto</title>
   <link rel="stylesheet" href="style.css"/>
   <style>
     body {
@@ -73,7 +73,7 @@
   </style>
 </head>
 <body>
-  <h1>🔐 TimeLock Ghi Chú</h1>
+  <h1 onclick="location.reload()" style="cursor: pointer;">🔐 Timelock Crypto</h1>
 
   <div class="tab-buttons">
     <div class="tab-button active" onclick="switchTab('encryptTab')">🛡️ Mã hóa</div>
@@ -86,15 +86,15 @@
     <label>📝 Ghi chú:</label>
     <textarea id="noteInput" placeholder="Nhập ghi chú..."></textarea>
 
-    <label>💴 ₿ Mã Crypto - Forex:</label>
-    <input id="coinInput" placeholder="VD: BTCUSDT" oninput="suggestCoins()" autocomplete="off"/>
+    <label>₿ Mã Crypto/Forex:</label>
+    <input id="coinInput" placeholder="Ví dụ: BTC/USDT" oninput="suggestCoins()" autocomplete="off"/>
     <div id="coinSuggestions" class="suggestions"></div>
 
     <div id="livePrice" class="price-display"></div>
 
-    <label>💰 Giá kỳ vọng:</label>
-    <input id="targetPrice" oninput="validatePriceInput(this)" placeholder="Giá cao hơn" style="color: #888; opacity: 0.6;"/>
-    <input id="minPrice" oninput="validatePriceInput(this)" placeholder="Giá thấp hơn hiện tại (tùy chọn)" style="color: #888; opacity: 0.6;"/>
+    <label>💰 Giá mở khoá:</label>
+    <input id="targetPrice" oninput="validatePriceInput(this)" placeholder="Giá cao hơn"/>
+    <input id="minPrice" oninput="validatePriceInput(this)" placeholder="Giá thấp hơn hiện tại (tùy chọn)"/>
 
     <label>⏰ Thời gian mở khóa:</label>
     <input type="datetime-local" id="unlockTime"/>
@@ -102,7 +102,7 @@
     <button onclick="showPaymentPopup()">🔐 Mã hóa</button>
 
     <div class="output-block">
-      <label>📦 Kết quả mã hóa:</label>
+      <label>⛓️ Kết quả mã hóa:</label>
       <textarea id="encryptedOutput" placeholder="🔒 Mã đã mã hóa..." readonly rows="6"></textarea>
       <button onclick="copyEncrypted()">📋 Copy</button>
     </div>
@@ -119,7 +119,7 @@
   <!-- Giải mã -->
   <section id="decryptTab" class="tab-content">
     <label>📥 Nhập mã đã mã hóa:</label>
-    <textarea id="decryptionInput" placeholder="📥 Dán mã đã mã hóa..." rows="6"></textarea>
+    <textarea id="decryptionInput" placeholder="📥 Dán mã đã mã hóa..." rows="7"></textarea>
     <button id="decryptButton" onclick="decrypt()">🔓 Giải mã</button>
     <div id="decryptedResult" class="output-block"></div>
     <button onclick="copyDecrypted()">📋 Copy</button>
@@ -132,14 +132,17 @@
   <!-- Popup Thanh toán -->
   <div id="paymentOverlay">
     <div class="payment-box">
-      <button class="close-btn" onclick="closePaymentPopup()">✖</button>
+      <button class="done-btn" onclick="closePaymentPopup()">X</button>
       <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.png" class="logo" />
-      <div class="qr" id="qrCodeContainer">[QR]</div>
-      <div class="wallet">Ví: <br><strong>0xcE6320183252CD965a70D4a9B6F30D2877a2188E</strong></div>
-      <div class="chain">⚠️ Chỉ gửi BEP20 token</div>
-      <div>💰 Số tiền cần thanh toán: <strong id="paymentAmount">0.5 USDT</strong></div>
+      <div class="qr" id="qrCodeContainer" onclick="copyWallet()"></div>
+      <div class="wallet" onclick="copyWallet()"><strong>0xcE6320183252CD965a70D4a9B6F30D287<br>7a2188E</strong></div>
+      <button class="copy-btn" onclick="copyWallet()">📋</button>
+      <div class="payment-amount">Amount: <strong id="paymentAmount">0.5 USDT</strong></div>
+      <div>Network: BNB Smartchain</div>
+      <div class="countdown" id="countdown">Còn 15 phút 0 giây</div>
       <div class="spinner"></div>
       <div>⏳ Đang chờ thanh toán...</div>
+      <div id="paymentStatus" class="payment-status"></div>
     </div>
   </div>
 
@@ -151,31 +154,9 @@
       document.querySelector(`.tab-button[onclick="switchTab('${tabId}')"]`).classList.add('active');
     }
 
-    function showPaymentPopup() {
-      const unlockInput = document.getElementById("unlockTime");
-      const unlock = new Date(unlockInput.value);
-      const now = new Date();
-
-      if (isNaN(unlock.getTime()) || unlock <= now) {
-        unlockInput.classList.add("time-invalid");
-        return;
-      } else {
-        unlockInput.classList.remove("time-invalid");
-      }
-
-      const days = Math.ceil((unlock - now) / (1000 * 60 * 60 * 24));
-      const amount = (Math.max(days, 1) * 0.5).toFixed(2);
-      document.getElementById("paymentAmount").textContent = `${amount} USDT`;
-
-      document.getElementById("paymentOverlay").style.display = "flex";
-
-      setTimeout(() => {
-        document.getElementById("paymentOverlay").style.display = "none";
-        encrypt();
-      }, 8000);
-    }
-
     function closePaymentPopup() {
+      clearInterval(countdownInterval);
+      clearTimeout(timeoutTimer);
       document.getElementById("paymentOverlay").style.display = "none";
     }
 
@@ -188,8 +169,6 @@
       const noteContent = document.querySelector('.note-content');
       if (noteContent) {
         navigator.clipboard.writeText(noteContent.innerText).then(() => alert("✅ Đã sao chép!"));
-      } else {
-        alert("❌ Không có nội dung để sao chép.");
       }
     }
   </script>
