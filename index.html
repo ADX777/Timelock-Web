@@ -51,10 +51,16 @@
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .close-btn { position: absolute; top: 8px; right: 12px; background: transparent; color: #fff; font-size: 20px; border: none; cursor: pointer; }
     .qr img { width: 100%; height: 100%; }
+    .connect-section { text-align: center; margin-bottom: 20px; }
+    #connectButton { background: #4CAF50; color: white; }
+    #walletStatus { color: #ffcc00; font-size: 14px; }
+    #connectError { color: #ff4444; font-size: 14px; margin-top: 5px; display: none; }
   </style>
-  <script src="https://cdn.litprotocol.com/sdk/2.3.30/lit.min.js"></script>
-  <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
-  <script src="https://unpkg.com/@metamask/sdk@0.27.0/dist/umd/metamask-sdk.min.js"></script>
+  <!-- CDN for Web3Modal v1 and WalletConnect v2 -->
+  <script src="https://unpkg.com/web3modal@1.9.12/dist/index.js"></script>
+  <script src="https://unpkg.com/@walletconnect/ethereum-provider@2.8.0/dist/umd/index.min.js"></script>
+  <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script src="https://unpkg.com/@lit-protocol/lit-node-client@4.1.0/lit.min.js"></script>
 </head>
 <body>
   <h1 onclick="location.reload()" style="cursor: pointer;">🔐 Timelock Crypto</h1>
@@ -70,25 +76,20 @@
     <div class="connect-section">
       <button id="connectButton" onclick="connectWallet()">Connect Wallet</button>
       <p id="walletStatus">Trạng thái: Chưa kết nối</p>
+      <p id="connectError"></p>
     </div>
     <label>📝 Ghi chú:</label>
     <textarea id="noteInput" placeholder="Nhập ghi chú..."></textarea>
-
     <label>₿ Mã Crypto/Forex:</label>
-    <input id="coinInput" placeholder="Ví dụ: BTC/USDT" oninput="suggestCoins()" autocomplete="off"/>
+    <input id="coinInput" placeholder="Ví dụ: BTC/USDT" oninput="suggestCoins(); fetchPrice();" autocomplete="off"/>
     <div id="coinSuggestions" class="suggestions"></div>
-
     <div id="livePrice" class="price-display"></div>
-
     <label>💰 Giá mở khoá:</label>
     <input id="targetPrice" oninput="validatePriceInput(this)" placeholder="Giá cao hơn"/>
     <input id="minPrice" oninput="validatePriceInput(this)" placeholder="Giá thấp hơn hiện tại (tùy chọn)"/>
-
     <label>⏰ Thời gian mở khóa:</label>
     <input type="datetime-local" id="unlockTime"/>
-
     <button onclick="validateBeforeEncrypt()">🔐 Mã hóa</button>
-
     <div class="output-block">
       <label>⛓️ Kết quả mã hóa:</label>
       <textarea id="encryptedOutput" placeholder="🔒 Mã đã mã hóa..." readonly rows="6"></textarea>
@@ -106,6 +107,11 @@
 
   <!-- Giải mã -->
   <section id="decryptTab" class="tab-content">
+    <div class="connect-section">
+      <button id="connectButtonDecrypt" onclick="connectWallet()">Connect Wallet</button>
+      <p id="walletStatusDecrypt">Trạng thái: Chưa kết nối</p>
+      <p id="connectErrorDecrypt"></p>
+    </div>
     <label>📥 Nhập mã đã mã hóa:</label>
     <textarea id="decryptionInput" placeholder="📥 Dán mã đã mã hóa..." rows="7"></textarea>
     <button id="decryptButton" onclick="decrypt()">🔓 Giải mã</button>
@@ -134,6 +140,9 @@
   </div>
 
   <script>
+    let web3Modal = null;
+    let walletProvider = null;
+
     function switchTab(tabId) {
       document.querySelectorAll('.tab-content').forEach(s => s.classList.remove('active'));
       document.querySelectorAll('.tab-button').forEach(t => t.classList.remove('active'));
@@ -149,34 +158,77 @@
       navigator.clipboard.writeText("0xcE6320183252CD965a70D4a9B6F30D2877a2188E").then(() => alert("✅ Đã sao chép địa chỉ ví!"));
     }
 
-    let metaMaskSDK = null; // Khởi tạo SDK sau load
-    window.addEventListener('load', () => {
-      console.log("Page loaded");
-      metaMaskSDK = new MetaMaskSDK({
-        dappMetadata: { name: "Timelock Crypto", url: window.location.href },
-        preferDesktop: false
-      });
-      console.log("MetaMaskSDK initialized");
-    });
-
     async function connectWallet() {
-      console.log("connectWallet called");
-      if (!metaMaskSDK) {
-        console.log("MetaMaskSDK not initialized yet");
-        alert("SDK chưa load xong. Vui lòng thử lại!");
-        return;
-      }
       try {
-        console.log("Trying to get provider");
-        const ethereum = metaMaskSDK.getProvider();
-        console.log("Provider obtained");
-        const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-        console.log("Accounts obtained:", accounts);
-        document.getElementById("walletStatus").textContent = "Trạng thái: Đã kết nối";
+        if (!web3Modal) {
+          web3Modal = new Web3Modal.default({
+            network: 'binanceSmartChain', // Use BNB chain
+            cacheProvider: true,
+            providerOptions: {
+              walletconnect: {
+                package: window.WalletConnectProvider.default, // WalletConnect v2
+                options: {
+                  projectId: "adab2be34c8c272ee1a99db63aad6119", // Your WalletConnect Project ID
+                  chains: [56], // BNB Mainnet chain ID
+                  showQrModal: true
+                }
+              },
+              'custom-metamask': {
+                display: {
+                  logo: 'https://metamask.io/images/mm-logo.png',
+                  name: 'MetaMask',
+                  description: 'Connect with MetaMask'
+                },
+                package: null,
+                connector: async () => {
+                  const provider = new ethers.providers.Web3Provider(window.ethereum);
+                  await provider.send("eth_requestAccounts", []);
+                  return provider;
+                }
+              },
+              'custom-trust': {
+                display: {
+                  logo: 'https://trustwallet.com/assets/images/icons/icon-256x256.png',
+                  name: 'Trust Wallet',
+                  description: 'Connect with Trust Wallet'
+                },
+                package: null,
+                connector: async () => {
+                  const provider = new ethers.providers.Web3Provider(window.ethereum);
+                  await provider.send("eth_requestAccounts", []);
+                  return provider;
+                }
+              },
+              'custom-coinbase': {
+                display: {
+                  logo: 'https://coinbase.com/assets/coinbase-logo.png',
+                  name: 'Coinbase Wallet',
+                  description: 'Connect with Coinbase Wallet'
+                },
+                package: null,
+                connector: async () => {
+                  const provider = new ethers.providers.Web3Provider(window.ethereum);
+                  await provider.send("eth_requestAccounts", []);
+                  return provider;
+                }
+              }
+            }
+          });
+        }
+
+        const provider = await web3Modal.connect();
+        walletProvider = new ethers.providers.Web3Provider(provider);
+        const accounts = await walletProvider.listAccounts();
+        document.getElementById("walletStatus").textContent = `Trạng thái: Đã kết nối (${accounts[0].substring(0, 6)}...${accounts[0].substring(accounts[0].length - 4)})`;
+        document.getElementById("walletStatusDecrypt").textContent = `Trạng thái: Đã kết nối (${accounts[0].substring(0, 6)}...${accounts[0].substring(accounts[0].length - 4)})`;
         document.getElementById("connectButton").disabled = true;
+        document.getElementById("connectButtonDecrypt").disabled = true;
       } catch (error) {
-        console.error("Connect error:", error);
-        alert("Lỗi connect ví: " + error.message);
+        console.error("Lỗi kết nối ví:", error);
+        document.getElementById("connectError").style.display = "block";
+        document.getElementById("connectError").textContent = `Lỗi: ${error.message}. Đảm bảo ví được cài đặt và mạng BNB được chọn.`;
+        document.getElementById("connectErrorDecrypt").style.display = "block";
+        document.getElementById("connectErrorDecrypt").textContent = `Lỗi: ${error.message}. Đảm bảo ví được cài đặt và mạng BNB được chọn.`;
       }
     }
 
@@ -198,6 +250,10 @@
         alert("Thời gian mở khóa phải lớn hơn hiện tại!");
         return;
       }
+      if (!walletProvider) {
+        alert("Vui lòng kết nối ví trước khi mã hóa!");
+        return;
+      }
       encrypt();
     }
 
@@ -207,8 +263,10 @@
     }
 
     function copyDecrypted() {
-      const noteContent = document.getElementById("decryptedResult").textContent;
-      navigator.clipboard.writeText(noteContent).then(() => alert("✅ Đã sao chép!"));
+      const noteContent = document.querySelector('.note-content');
+      if (noteContent) {
+        navigator.clipboard.writeText(noteContent.innerText).then(() => alert("✅ Đã sao chép!"));
+      }
     }
   </script>
 
