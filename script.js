@@ -8,64 +8,93 @@ let walletProvider = null; // Lưu provider sau khi connect
 
 // Khởi tạo Web3Modal với WalletConnect v2
 const Web3Modal = window.Web3Modal.default;
-const WalletConnectProvider = window.WalletConnectProvider.default;
+let web3Modal;
 
-let web3Modal = new Web3Modal({
-  network: 'binanceSmartChain', // Sử dụng BNB chain
-  cacheProvider: true, // Lưu provider đã chọn
-  providerOptions: {
-    walletconnect: {
-      package: WalletConnectProvider,
-      options: {
-        projectId: "adab2be34c8c272ee1a99db63aad6119", // Project ID từ WalletConnect
-        chains: [56], // BNB Mainnet chain ID
-        showQrModal: true,
-        rpc: {
-          56: "https://bsc-dataseed.binance.org/" // RPC cho BNB chain
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    web3Modal = new Web3Modal({
+      network: 'binanceSmartChain', // Sử dụng BNB chain
+      cacheProvider: true, // Lưu provider đã chọn
+      providerOptions: {
+        walletconnect: {
+          package: window.WalletConnectProvider, // Sử dụng WalletConnect v2
+          options: {
+            projectId: "adab2be34c8c272ee1a99db63aad6119", // Project ID từ WalletConnect
+            chains: [56], // BNB Mainnet chain ID
+            showQrModal: true,
+            rpc: {
+              56: "https://bsc-dataseed.binance.org/" // RPC cho BNB chain
+            }
+          }
+        },
+        'custom-metamask': {
+          display: {
+            logo: 'https://metamask.io/images/mm-logo.png',
+            name: 'MetaMask',
+            description: 'Connect with MetaMask'
+          },
+          package: null,
+          connector: async () => {
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            return provider;
+          }
+        },
+        'custom-trust': {
+          display: {
+            logo: 'https://trustwallet.com/assets/images/icons/icon-256x256.png',
+            name: 'Trust Wallet',
+            description: 'Connect with Trust Wallet'
+          },
+          package: null,
+          connector: async () => {
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            return provider;
+          }
+        },
+        'custom-coinbase': {
+          display: {
+            logo: 'https://coinbase.com/assets/coinbase-logo.png',
+            name: 'Coinbase Wallet',
+            description: 'Connect with Coinbase Wallet'
+          },
+          package: null,
+          connector: async () => {
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            return provider;
+          }
         }
       }
-    },
-    'custom-metamask': {
-      display: {
-        logo: 'https://metamask.io/images/mm-logo.png',
-        name: 'MetaMask',
-        description: 'Connect with MetaMask'
-      },
-      package: null,
-      connector: async () => {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
-        return provider;
-      }
-    },
-    'custom-trust': {
-      display: {
-        logo: 'https://trustwallet.com/assets/images/icons/icon-256x256.png',
-        name: 'Trust Wallet',
-        description: 'Connect with Trust Wallet'
-      },
-      package: null,
-      connector: async () => {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
-        return provider;
-      }
-    },
-    'custom-coinbase': {
-      display: {
-        logo: 'https://coinbase.com/assets/coinbase-logo.png',
-        name: 'Coinbase Wallet',
-        description: 'Connect with Coinbase Wallet'
-      },
-      package: null,
-      connector: async () => {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
-        return provider;
-      }
-    }
+    });
+  } catch (error) {
+    console.error('Lỗi khởi tạo Web3Modal:', error);
+    document.getElementById("connectError").style.display = "block";
+    document.getElementById("connectError").textContent = `Lỗi: ${error.message}. Vui lòng kiểm tra kết nối mạng hoặc CDN.`;
+    document.getElementById("connectErrorDecrypt").style.display = "block";
+    document.getElementById("connectErrorDecrypt").textContent = `Lỗi: ${error.message}. Vui lòng kiểm tra kết nối mạng hoặc CDN.`;
   }
 });
+
+async function connectWallet() {
+  try {
+    if (!web3Modal) throw new Error("Web3Modal chưa được khởi tạo!");
+    const provider = await web3Modal.connect();
+    walletProvider = new ethers.providers.Web3Provider(provider);
+    const accounts = await walletProvider.listAccounts();
+    document.getElementById("walletStatus").textContent = `Trạng thái: Đã kết nối (${accounts[0].substring(0, 6)}...${accounts[0].substring(accounts[0].length - 4)})`;
+    document.getElementById("walletStatusDecrypt").textContent = `Trạng thái: Đã kết nối (${accounts[0].substring(0, 6)}...${accounts[0].substring(accounts[0].length - 4)})`;
+    document.getElementById("connectButton").disabled = true;
+    document.getElementById("connectButtonDecrypt").disabled = true;
+  } catch (error) {
+    console.error("Lỗi kết nối ví:", error);
+    document.getElementById("connectError").style.display = "block";
+    document.getElementById("connectError").textContent = `Lỗi: ${error.message}. Đảm bảo ví được cài đặt và mạng BNB được chọn.`;
+    document.getElementById("connectErrorDecrypt").style.display = "block";
+    document.getElementById("connectErrorDecrypt").textContent = `Lỗi: ${error.message}. Đảm bảo ví được cài đặt và mạng BNB được chọn.`;
+  }
+}
 
 async function loadCoinList() {
   try {
