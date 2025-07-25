@@ -1,3 +1,4 @@
+// script.js
 let allCoins = [];
 
 const alphaKey = '58M61D2ZINADHSE2';
@@ -210,116 +211,158 @@ async function sha256Bytes(msg) {
   return new Uint8Array(await crypto.subtle.digest("SHA-256", buffer));
 }
 
+// Khởi tạo Lit
+const litClient = new LitJsSdk.LitNodeClient({ litNetwork: 'datil-dev' }); // Testnet, thay 'cayenne' cho mainnet
+async function connectLit() {
+    await litClient.connect();
+    console.log('Lit connected');
+}
+connectLit();
+
+// Oracle examples (BNB mainnet Chainlink)
+const chainlinkOracles = {
+    'BTCUSDT': '0x0567F2323251f0Aab15c8dFb1967e4e8A7D42aEe', // BTC/USD
+    'ETHUSDT': '0x9ef1B8c0E4F7dc8173CE3516B9230823Bd323689', // ETH/USD
+    // Thêm cho forex nếu có oracle (hoặc dùng Lit Actions cho API off-chain nếu cần)
+};
+
+// Contract time (deploy và thay address)
+const timeLockContract = 'YOUR_TIMELock_CONTRACT_ADDRESS'; // Ví dụ: 0x...
+
 async function encrypt() {
-  const note = document.getElementById("noteInput").value;
-  const coin = document.getElementById("coinInput").value.toUpperCase();
-  const priceInput = document.getElementById("targetPrice").value.trim();
-  const minInput = document.getElementById("minPrice").value.trim();
-  const unlockLocalString = document.getElementById("unlockTime").value.trim();
+    const note = document.getElementById("noteInput").value;
+    const coin = document.getElementById("coinInput").value.toUpperCase();
+    const priceInput = document.getElementById("targetPrice").value.trim();
+    const minPriceInput = document.getElementById("minPrice").value.trim();
+    const unlockLocalString = document.getElementById("unlockTime").value.trim();
 
-  const currentPrice = await getPrice(coin);
+    try {
+        // Validation (giữ nguyên)
+        if (!note || !coin || !priceInput || !unlockLocalString) throw new Error("Nhập đầy đủ thông tin!");
+        if (!allCoins.includes(coin)) throw new Error("Coin không hợp lệ!");
+        const unlockDate = new Date(unlockLocalString);
+        const now = await getBinanceTime() || new Date();
+        if (unlockDate <= now) throw new Error("Thời gian mở khóa không hợp lệ!");
 
-  let price = null;
-  if (priceInput) {
-    price = parseFloat(priceInput);
-  }
+        const price = parseFloat(priceInput);
+        const minPrice = minPriceInput ? parseFloat(minPriceInput) : null;
+        const oracleAddress = chainlinkOracles[coin] || '0x0567F2323251f0Aab15c8dFb1967e4e8A7D42aEe'; // Fallback BTC/USD
 
-  let minPrice = null;
-  if (minInput) {
-    minPrice = parseFloat(minInput);
-  }
+        // Access control conditions (time + price > target, optional minPrice < current)
+        const conditions = [
+            {
+                contractAddress: oracleAddress,
+                standardContractType: '',
+                chain: 'binance',
+                method: 'latestAnswer',
+                parameters: [],
+                returnValueTest: { comparator: '>=', value: (price * 1e8).toString() } // >= target price (8 decimals)
+            },
+            { operator: 'and' },
+            {
+                contractAddress: timeLockContract,
+                standardContractType: '',
+                chain: 'binance',
+                method: 'isUnlocked',
+                parameters: [Math.floor(unlockDate.getTime() / 1000).toString()],
+                returnValueTest: { comparator: '==', value: 'true' }
+            }
+        ];
 
-  let timeUTC = null;
-  if (unlockLocalString) {
-    const unlockDate = new Date(unlockLocalString);
-    timeUTC = unlockDate.toISOString();
-  }
+        if (minPrice) {
+            conditions.unshift({
+                contractAddress: oracleAddress,
+                standardContractType: '',
+                chain: 'binance',
+                method: 'latestAnswer',
+                parameters: [],
+                returnValueTest: { comparator: '<=', value: (minPrice * 1e8).toString() } // <= min price
+            });
+            conditions.unshift({ operator: 'and' });
+        }
 
-  const lit = new LitNodeClient();
-  await lit.connect();
-  const conditions = [
-    { // Time đạt
-      contractAddress: '',
-      standardContractType: 'timestamp',
-      chain: 'bnb',
-      method: 'time',
-      parameters: [Math.floor(new Date(unlockLocalString).getTime() / 1000)],
-      returnValueTest: { comparator: '>', value: 'current_time' }
-    },
-    { // Giá đạt (Chainlink oracle cho BTC/USD as example, adjust for coin)
-      contractAddress: '0x0567F2323251f0Aab15c8dFb1967e4e8A7D42aEe', // Oracle BTC/USD trên BNB
-      standardContractType: 'oracle',
-      chain: 'bnb',
-      method: 'latestRoundData',
-      parameters: [coin],
-      returnValueTest: { comparator: '>', value: priceInput || '0' }
+        // Mã hóa KHÔNG cần authSig/wallet
+        const { ciphertext, dataToEncryptHash } = await LitJsSdk.encryptString(
+            note,
+            litClient,
+            { accessControlConditions: conditions, chain: 'binance' }
+        );
+
+        // Hiển thị output (lưu conditions để decrypt sau, nhưng Lit tự lưu shares)
+        const output = `ENC[${ciphertext},${dataToEncryptHash}]`;
+        document.getElementById("encryptedOutput").value = output;
+        document.getElementById("encryptedOutput").classList.add('frozen-effect');
+
+    } catch (error) {
+        console.error('Lỗi mã hóa:', error);
+        document.getElementById("encryptedOutput").value = `❌ Lỗi: ${error.message}`;
     }
-  ];
-  const encrypted = await lit.encrypt({
-    dataToEncrypt: note,
-    accessControlConditions: conditions
-  });
-  document.getElementById("encryptedOutput").value = encrypted;
-  document.getElementById("encryptedOutput").classList.add('frozen-effect');
 }
 
 async function decrypt() {
-  const decryptButton = document.getElementById("decryptButton");
-  const loadingIndicator = document.getElementById("loadingIndicator");
-  const resultElement = document.getElementById("decryptedResult");
+    const decryptButton = document.getElementById("decryptButton");
+    const loadingIndicator = document.getElementById("loadingIndicator");
+    const resultElement = document.getElementById("decryptedResult");
 
-  decryptButton.disabled = true;
-  loadingIndicator.style.display = "block";
-  resultElement.innerHTML = "";
+    decryptButton.disabled = true;
+    loadingIndicator.style.display = "block";
+    resultElement.innerHTML = "";
 
-  try {
-    const input = document.getElementById("decryptionInput").value.trim();
-    if (!input.startsWith("ENC[") || !input.endsWith("]")) {
-      resultElement.textContent = "❌ Mã không đúng định dạng.";
-      return;
-    }
+    try {
+        const input = document.getElementById("decryptionInput").value.trim();
+        if (!input.startsWith("ENC[") || !input.endsWith("]")) throw new Error("Mã không đúng định dạng!");
 
-    // Connect ví
-    if (window.ethereum) {
-      const web3 = new Web3(window.ethereum);
-      await window.ethereum.request({ method: 'eth_requestAccounts' }); // Kết nối
-      const accounts = await web3.eth.getAccounts();
-      if (!accounts.length) throw new Error("Không kết nối được ví!");
+        const [, ciphertext, dataToEncryptHash] = input.match(/ENC\[(.+),(.+)\]/) || [];
+        if (!ciphertext || !dataToEncryptHash) throw new Error("Mã không hợp lệ!");
 
-      // Connect Lit
-      const lit = new LitNodeClient();
-      await lit.connect();
+        // Kết nối ví để authSig và thanh toán
+        if (!window.ethereum) throw new Error("Vui lòng cài ví MetaMask và kết nối!");
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send('eth_requestAccounts', []);
+        const authSig = await LitJsSdk.checkAndSignAuthMessage({ chain: 'binance' });
 
-      // Decrypt on-chain (trả gas từ ví)
-      const decrypted = await lit.decrypt({
-        encryptedData: input,
-        accessControlConditions: [] // Lit tự lấy từ encrypted
-      }, {
-        chain: 'bnb',
-        account: accounts[0] // Địa chỉ ví
-      });
-      resultElement.innerHTML = `<div class="note-label">Ghi chú:</div><div class="note-content">${decrypted}</div>`;
-      resultElement.classList.add('success-border');
-      const successMsg = document.createElement('div');
-      successMsg.id = 'successMsg';
-      successMsg.textContent = 'Giải mã thành công';
-      resultElement.appendChild(successMsg);
+        // Giải mã (Lit sẽ check conditions on-chain)
+        const decrypted = await LitJsSdk.decryptString(
+            ciphertext,
+            dataToEncryptHash,
+            { accessControlConditions: [], chain: 'binance', authSig }, // Conditions tự lấy từ shares
+            litClient
+        );
 
-      setTimeout(() => {
-        successMsg.style.opacity = 0;
+        // Tính phí và thanh toán (dựa trên thời gian từ mã hóa đến nay, giả sử mã hóa lúc unlockTime được set)
+        const days = Math.ceil((new Date() - new Date(/* Có thể lưu timestamp mã hóa trong output nếu cần */)) / (86400 * 1000)) || 1; // Default 1 ngày
+        const fee = 0.5 * days;
+        await payUSDT(fee, provider);
+
+        // Hiển thị kết quả
+        resultElement.innerHTML = `<div class="note-label">Ghi chú:</div><div class="note-content">${decrypted}</div>`;
+        resultElement.classList.add('success-border');
+        const successMsg = document.createElement('div');
+        successMsg.id = 'successMsg';
+        successMsg.textContent = 'Giải mã thành công';
+        resultElement.appendChild(successMsg);
         setTimeout(() => {
-          successMsg.remove();
-        }, 500);
-      }, 3000);
-    } else {
-      throw new Error("Vui lòng cài ví crypto (MetaMask hoặc Coin98)!");
+            successMsg.style.opacity = 0;
+            setTimeout(() => successMsg.remove(), 500);
+        }, 3000);
+
+    } catch (error) {
+        resultElement.innerHTML = `<div class="error-title">❌ Lỗi</div><div class="error-detail">${error.message}</div>`;
+    } finally {
+        loadingIndicator.style.display = "none";
+        decryptButton.disabled = false;
     }
-  } catch {
-    resultElement.textContent = "❌ Giải mã thất bại.";
-  } finally {
-    loadingIndicator.style.display = "none";
-    decryptButton.disabled = false;
-  }
+}
+
+// Hàm thanh toán USDT (gọi trong decrypt)
+async function payUSDT(amount, provider) {
+    const signer = provider.getSigner();
+    const usdtAddress = '0x55d398326f99059fF775485246999027B3197955'; // USDT BEP20 trên BNB
+    const abi = ['function transfer(address to, uint256 value) returns (bool)'];
+    const usdt = new ethers.Contract(usdtAddress, abi, signer);
+    const tx = await usdt.transfer('0xcE6320183252CD965a70D4a9B6F30D2877a2188E', ethers.utils.parseUnits(amount.toString(), 6));
+    await tx.wait();
+    console.log('Thanh toán thành công:', tx.hash);
 }
 
 async function validateUnlockTime() {
