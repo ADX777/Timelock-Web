@@ -71,6 +71,9 @@
       border: none; cursor: pointer;
     }
   </style>
+  <!-- Add Lit SDK and web3.js -->
+  <script src="https://cdn.litprotocol.com/lit-sdk.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
 </head>
 <body>
   <h1 onclick="location.reload()" style="cursor: pointer;">🔐 Timelock Crypto</h1>
@@ -99,7 +102,7 @@
     <label>⏰ Thời gian mở khóa:</label>
     <input type="datetime-local" id="unlockTime"/>
 
-    <button onclick="showPaymentPopup()">🔐 Mã hóa</button>
+    <button onclick="encrypt()">🔐 Mã hóa</button>
 
     <div class="output-block">
       <label>⛓️ Kết quả mã hóa:</label>
@@ -111,7 +114,7 @@
   <!-- Thông báo -->
   <section id="infoTab" class="tab-content">
     <p>📌 Website TimeLock Ghi Chú giúp bạn bảo vệ thông tin bằng thời gian và giá coin.</p>
-    <p>💵 Phí: <strong>0.5 USDT/ngày</strong></p>
+    <p>💵 Phí: 0.5 USDT/ngày</p>
     <p>📌 Dùng mã hóa AES-CBC + SHA256, chỉ lưu trữ client-side.</p>
     <p>🚫 Không mã hóa passphrase/seed/private key.</p>
   </section>
@@ -129,10 +132,10 @@
     </div>
   </section>
 
-  <!-- Popup Thanh toán -->
+  <!-- Popup Thanh toán (tạm loại bỏ, nhưng giữ HTML nếu cần add lại) -->
   <div id="paymentOverlay">
     <div class="payment-box">
-      <button class="done-btn" onclick="closePaymentPopup()">X</button>
+      <button class="close-btn" onclick="closePaymentPopup()">X</button>
       <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.png" class="logo" />
       <div class="qr" id="qrCodeContainer" onclick="copyWallet()"></div>
       <div class="wallet" onclick="copyWallet()"><strong>0xcE6320183252CD965a70D4a9B6F30D287<br>7a2188E</strong></div>
@@ -155,8 +158,6 @@
     }
 
     function closePaymentPopup() {
-      clearInterval(countdownInterval);
-      clearTimeout(timeoutTimer);
       document.getElementById("paymentOverlay").style.display = "none";
     }
 
