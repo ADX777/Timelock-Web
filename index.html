@@ -52,6 +52,9 @@
     .close-btn { position: absolute; top: 8px; right: 12px; background: transparent; color: #fff; font-size: 20px; border: none; cursor: pointer; }
     .qr img { width: 100%; height: 100%; }
     .notice { color: #ff4444; font-size: 14px; margin-top: 10px; text-align: center; }
+    #walletStatus { color: #00ff88; font-size: 14px; margin-bottom: 10px; text-align: center; }
+    #connectButton { background: #4CAF50; margin-bottom: 10px; }
+    #encryptButton { background: #ffd700; }
   </style>
   <script src="https://cdn.litprotocol.com/sdk/2.3.30/lit.min.js"></script>
   <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
@@ -66,6 +69,8 @@
   </div>
 
   <section id="encryptTab" class="tab-content active">
+    <div id="walletStatus">Trạng thái ví: Chưa kết nối</div>
+    <button id="connectButton" onclick="connectWallet()">Connect Wallet</button>
     <label>📝 Ghi chú:</label>
     <textarea id="noteInput" placeholder="Nhập ghi chú..."></textarea>
     <label>₿ Mã Crypto/Forex:</label>
@@ -77,8 +82,8 @@
     <input id="minPrice" oninput="validatePriceInput(this)" placeholder="Giá thấp hơn hiện tại (tùy chọn)"/>
     <label>⏰ Thời gian mở khóa:</label>
     <input type="datetime-local" id="unlockTime"/>
-    <button onclick="validateBeforeEncrypt()">🔐 Mã hóa</button>
-    <div id="encryptNotice" class="notice">Lưu ý: Cần kết nối ví (MetaMask) để mã hóa!</div>
+    <button id="encryptButton" onclick="validateBeforeEncrypt()">🔐 Mã hóa</button>
+    <div class="notice">Lưu ý: Kết nối ví trước khi mã hóa!</div>
     <div class="output-block">
       <label>⛓️ Kết quả mã hóa:</label>
       <textarea id="encryptedOutput" placeholder="🔒 Mã đã mã hóa..." readonly rows="6"></textarea>
@@ -122,6 +127,9 @@
   </div>
 
   <script>
+    let authSig = null; // Lưu authSig toàn cục sau connect
+    let provider = null; // Lưu provider
+
     function switchTab(tabId) {
       document.querySelectorAll('.tab-content').forEach(s => s.classList.remove('active'));
       document.querySelectorAll('.tab-button').forEach(t => t.classList.remove('active'));
@@ -135,6 +143,20 @@
 
     function copyWallet() {
       navigator.clipboard.writeText("0xcE6320183252CD965a70D4a9B6F30D2877a2188E").then(() => alert("✅ Đã sao chép địa chỉ ví!"));
+    }
+
+    async function connectWallet() {
+      try {
+        if (!window.ethereum) throw new Error("Vui lòng cài MetaMask!");
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send('eth_requestAccounts', []);
+        authSig = await LitJsSdk.checkAndSignAuthMessage({ chain: 'binanceSmartChain' });
+        document.getElementById("walletStatus").textContent = "Trạng thái ví: Đã kết nối!";
+        document.getElementById("walletStatus").style.color = "#00ff88";
+        document.getElementById("connectButton").disabled = true; // Disable nút sau connect
+      } catch (error) {
+        alert("Lỗi kết nối ví: " + error.message);
+      }
     }
 
     function validateBeforeEncrypt() {
@@ -153,6 +175,10 @@
       const now = new Date();
       if (new Date(unlockTime) <= now) {
         alert("Thời gian mở khóa phải lớn hơn hiện tại!");
+        return;
+      }
+      if (!authSig) {
+        alert("Vui lòng connect ví trước!");
         return;
       }
       encrypt();
