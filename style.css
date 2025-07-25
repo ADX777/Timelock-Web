@@ -271,3 +271,12 @@ input::placeholder {
   border-radius: 8px;
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
 }
+
+/* Đảm bảo modal hiển thị trên cùng */
+.web3modal-modal-lightbox {
+  z-index: 10000 !important;
+  background: rgba(0, 0, 0, 0.9) !important;
+}
+.web3modal-modal-container {
+  z-index: 10001 !important;
+}
