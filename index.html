@@ -51,12 +51,10 @@
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .close-btn { position: absolute; top: 8px; right: 12px; background: transparent; color: #fff; font-size: 20px; border: none; cursor: pointer; }
     .qr img { width: 100%; height: 100%; }
-    .connect-section { text-align: center; margin-bottom: 20px; }
-    #connectButton { background: #4CAF50; color: white; }
-    #walletStatus { color: #ffcc00; font-size: 14px; }
   </style>
   <script src="https://cdn.litprotocol.com/sdk/2.3.30/lit.min.js"></script>
   <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
+  <script src="https://unpkg.com/@metamask/sdk@0.27.0/dist/umd/metamask-sdk.min.js"></script>
 </head>
 <body>
   <h1 onclick="location.reload()" style="cursor: pointer;">🔐 Timelock Crypto</h1>
@@ -75,16 +73,22 @@
     </div>
     <label>📝 Ghi chú:</label>
     <textarea id="noteInput" placeholder="Nhập ghi chú..."></textarea>
+
     <label>₿ Mã Crypto/Forex:</label>
     <input id="coinInput" placeholder="Ví dụ: BTC/USDT" oninput="suggestCoins()" autocomplete="off"/>
     <div id="coinSuggestions" class="suggestions"></div>
+
     <div id="livePrice" class="price-display"></div>
+
     <label>💰 Giá mở khoá:</label>
     <input id="targetPrice" oninput="validatePriceInput(this)" placeholder="Giá cao hơn"/>
     <input id="minPrice" oninput="validatePriceInput(this)" placeholder="Giá thấp hơn hiện tại (tùy chọn)"/>
+
     <label>⏰ Thời gian mở khóa:</label>
     <input type="datetime-local" id="unlockTime"/>
+
     <button onclick="validateBeforeEncrypt()">🔐 Mã hóa</button>
+
     <div class="output-block">
       <label>⛓️ Kết quả mã hóa:</label>
       <textarea id="encryptedOutput" placeholder="🔒 Mã đã mã hóa..." readonly rows="6"></textarea>
@@ -102,10 +106,6 @@
 
   <!-- Giải mã -->
   <section id="decryptTab" class="tab-content">
-    <div class="connect-section">
-      <button id="connectButtonDecrypt" onclick="connectWallet()">Connect Wallet</button>
-      <p id="walletStatusDecrypt">Trạng thái: Chưa kết nối</p>
-    </div>
     <label>📥 Nhập mã đã mã hóa:</label>
     <textarea id="decryptionInput" placeholder="📥 Dán mã đã mã hóa..." rows="7"></textarea>
     <button id="decryptButton" onclick="decrypt()">🔓 Giải mã</button>
@@ -149,20 +149,34 @@
       navigator.clipboard.writeText("0xcE6320183252CD965a70D4a9B6F30D2877a2188E").then(() => alert("✅ Đã sao chép địa chỉ ví!"));
     }
 
+    let metaMaskSDK = null; // Khởi tạo SDK sau load
+    window.addEventListener('load', () => {
+      console.log("Page loaded");
+      metaMaskSDK = new MetaMaskSDK({
+        dappMetadata: { name: "Timelock Crypto", url: window.location.href },
+        preferDesktop: false
+      });
+      console.log("MetaMaskSDK initialized");
+    });
+
     async function connectWallet() {
-      console.log('Trying to connect wallet');
+      console.log("connectWallet called");
+      if (!metaMaskSDK) {
+        console.log("MetaMaskSDK not initialized yet");
+        alert("SDK chưa load xong. Vui lòng thử lại!");
+        return;
+      }
       try {
-        const MMSDK = new MetaMaskSDK({
-          dappMetadata: { name: "Timelock Crypto", url: window.location.href },
-        });
-        const ethereum = MMSDK.getProvider();
+        console.log("Trying to get provider");
+        const ethereum = metaMaskSDK.getProvider();
+        console.log("Provider obtained");
         const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-        document.getElementById("walletStatus").textContent = "Trạng thái: Đã kết nối!";
-        document.getElementById("walletStatusDecrypt").textContent = "Trạng thái: Đã kết nối!";
-        console.log('Connected accounts:', accounts);
+        console.log("Accounts obtained:", accounts);
+        document.getElementById("walletStatus").textContent = "Trạng thái: Đã kết nối";
+        document.getElementById("connectButton").disabled = true;
       } catch (error) {
-        console.error('Connect error:', error);
-        alert('Lỗi connect ví: ' + error.message + '. Vui lòng mở trang này trong MetaMask browser hoặc cài app MetaMask.');
+        console.error("Connect error:", error);
+        alert("Lỗi connect ví: " + error.message);
       }
     }
 
@@ -193,10 +207,8 @@
     }
 
     function copyDecrypted() {
-      const noteContent = document.querySelector('.note-content');
-      if (noteContent) {
-        navigator.clipboard.writeText(noteContent.innerText).then(() => alert("✅ Đã sao chép!"));
-      }
+      const noteContent = document.getElementById("decryptedResult").textContent;
+      navigator.clipboard.writeText(noteContent).then(() => alert("✅ Đã sao chép!"));
     }
   </script>
 
