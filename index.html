@@ -162,15 +162,18 @@
       try {
         if (!web3Modal) {
           web3Modal = new Web3Modal.default({
-            network: 'binanceSmartChain', // Use BNB chain
+            network: 'binanceSmartChain', // Sử dụng BNB chain
             cacheProvider: true,
             providerOptions: {
               walletconnect: {
-                package: window.WalletConnectProvider.default, // WalletConnect v2
+                package: window.WalletConnectProvider, // Sử dụng WalletConnect v2
                 options: {
-                  projectId: "adab2be34c8c272ee1a99db63aad6119", // Your WalletConnect Project ID
+                  projectId: "adab2be34c8c272ee1a99db63aad6119", // Project ID từ WalletConnect
                   chains: [56], // BNB Mainnet chain ID
-                  showQrModal: true
+                  showQrModal: true,
+                  rpc: {
+                    56: "https://bsc-dataseed.binance.org/" // RPC cho BNB chain
+                  }
                 }
               },
               'custom-metamask': {
