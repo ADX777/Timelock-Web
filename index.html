@@ -55,6 +55,14 @@
     #connectButton { background: #4CAF50; color: white; }
     #walletStatus { color: #ffcc00; font-size: 14px; }
     #connectError { color: #ff4444; font-size: 14px; margin-top: 5px; display: none; }
+    /* Đảm bảo modal hiển thị trên cùng */
+    .web3modal-modal-lightbox {
+      z-index: 10000 !important;
+      background: rgba(0, 0, 0, 0.9) !important;
+    }
+    .web3modal-modal-container {
+      z-index: 10001 !important;
+    }
   </style>
   <!-- CDN for Web3Modal v1 and WalletConnect v2 -->
   <script src="https://unpkg.com/web3modal@1.9.12/dist/index.js"></script>
