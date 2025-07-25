@@ -76,6 +76,7 @@ async function suggestCoins() {
     const div = document.createElement("div");
     div.textContent = match;
     div.addEventListener('click', () => {
+      console.log("Clicked on: " + match);
       document.getElementById("coinInput").value = match;
       suggestions.innerHTML = "";
       fetchPrice();
@@ -161,7 +162,7 @@ async function fetchPrice() {
     if (twelveRes) {
       try {
         const data = await twelveRes.json();
-        const price = data.price;
+        price = data.price;
         if (price) {
           document.getElementById("livePrice").textContent = `💹 Giá hiện tại: ${parseFloat(price).toFixed(5)} USD`;
           return;
@@ -456,7 +457,13 @@ async function validateUnlock() {
 document.addEventListener("DOMContentLoaded", () => {
   const noteInput = document.getElementById("noteInput");
   noteInput.addEventListener("input", () => {
-    noteInput.value = noteInput.value.replace(/[^a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/? ]/g, '');
+    noteInput.value = noteInput.value.replace(/[^a-zA-Z0-9!@#$%^&*()_+\-=
+    ```
+    \[
+    
+    \]GROK_BLOCK_LATEX
+    ```
+{};':"\\|,.<>\/? ]/g, '');
     validateNote();
   });
   noteInput.addEventListener("blur", validateNote);
