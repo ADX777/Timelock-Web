@@ -51,12 +51,12 @@
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .close-btn { position: absolute; top: 8px; right: 12px; background: transparent; color: #fff; font-size: 20px; border: none; cursor: pointer; }
     .qr img { width: 100%; height: 100%; }
-    .notice { color: #ff4444; font-size: 14px; margin-top: 10px; text-align: center; }
+    .connect-section { text-align: center; margin-bottom: 20px; }
+    #connectButton { background: #4CAF50; color: white; }
+    #walletStatus { color: #ffcc00; font-size: 14px; }
   </style>
-  <!-- Add Lit SDK, ethers.js, and WalletConnect -->
   <script src="https://cdn.litprotocol.com/sdk/2.3.30/lit.min.js"></script>
   <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
-  <script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
 </head>
 <body>
   <h1 onclick="location.reload()" style="cursor: pointer;">🔐 Timelock Crypto</h1>
@@ -69,24 +69,22 @@
 
   <!-- Mã hóa -->
   <section id="encryptTab" class="tab-content active">
+    <div class="connect-section">
+      <button id="connectButton" onclick="connectWallet()">Connect Wallet</button>
+      <p id="walletStatus">Trạng thái: Chưa kết nối</p>
+    </div>
     <label>📝 Ghi chú:</label>
     <textarea id="noteInput" placeholder="Nhập ghi chú..."></textarea>
-
     <label>₿ Mã Crypto/Forex:</label>
     <input id="coinInput" placeholder="Ví dụ: BTC/USDT" oninput="suggestCoins()" autocomplete="off"/>
     <div id="coinSuggestions" class="suggestions"></div>
-
     <div id="livePrice" class="price-display"></div>
-
     <label>💰 Giá mở khoá:</label>
     <input id="targetPrice" oninput="validatePriceInput(this)" placeholder="Giá cao hơn"/>
     <input id="minPrice" oninput="validatePriceInput(this)" placeholder="Giá thấp hơn hiện tại (tùy chọn)"/>
-
     <label>⏰ Thời gian mở khóa:</label>
     <input type="datetime-local" id="unlockTime"/>
-
-    <button onclick="encrypt()">🔐 Mã hóa</button>
-
+    <button onclick="validateBeforeEncrypt()">🔐 Mã hóa</button>
     <div class="output-block">
       <label>⛓️ Kết quả mã hóa:</label>
       <textarea id="encryptedOutput" placeholder="🔒 Mã đã mã hóa..." readonly rows="6"></textarea>
@@ -104,6 +102,10 @@
 
   <!-- Giải mã -->
   <section id="decryptTab" class="tab-content">
+    <div class="connect-section">
+      <button id="connectButtonDecrypt" onclick="connectWallet()">Connect Wallet</button>
+      <p id="walletStatusDecrypt">Trạng thái: Chưa kết nối</p>
+    </div>
     <label>📥 Nhập mã đã mã hóa:</label>
     <textarea id="decryptionInput" placeholder="📥 Dán mã đã mã hóa..." rows="7"></textarea>
     <button id="decryptButton" onclick="decrypt()">🔓 Giải mã</button>
