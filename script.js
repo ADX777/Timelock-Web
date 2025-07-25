@@ -29,8 +29,7 @@ async function loadCoinList() {
       allCoins.push('EUR/JPY', 'GBP/JPY', 'EUR/GBP', 'EUR/CAD', 'EUR/AUD', 'EUR/NZD', 'GBP/AUD', 'GBP/CAD', 'NZD/CAD', 'USD/CAD', 'USD/CHF');
       allCoins.push('AUD/USD', 'AUD/NZD', 'AUD/CAD', 'AUD/JPY', 'NZD/USD', 'NZD/JPY');
       allCoins.sort();
-    } catch (innerE) {
-    }
+    } catch (innerE) {}
   }
 }
 loadCoinList();
@@ -77,7 +76,6 @@ async function suggestCoins() {
     const div = document.createElement("div");
     div.textContent = match;
     div.addEventListener('click', () => {
-      console.log("Clicked on: " + match);
       document.getElementById("coinInput").value = match;
       suggestions.innerHTML = "";
       fetchPrice();
@@ -458,13 +456,7 @@ async function validateUnlock() {
 document.addEventListener("DOMContentLoaded", () => {
   const noteInput = document.getElementById("noteInput");
   noteInput.addEventListener("input", () => {
-    noteInput.value = noteInput.value.replace(/[^a-zA-Z0-9!@#$%^&*()_+\-=
-    ```
-    \[
-    
-    \]GROK_BLOCK_LATEX
-    ```
-{};':"\\|,.<>\/? ]/g, '');
+    noteInput.value = noteInput.value.replace(/[^a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/? ]/g, '');
     validateNote();
   });
   noteInput.addEventListener("blur", validateNote);
