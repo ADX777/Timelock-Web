@@ -57,7 +57,6 @@
   </style>
   <script src="https://cdn.litprotocol.com/sdk/2.3.30/lit.min.js"></script>
   <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
-  <script src="https://sdk.metamask.io/js/metamask-sdk.js"></script>  <!-- MetaMask SDK for mobile -->
 </head>
 <body>
   <h1 onclick="location.reload()" style="cursor: pointer;">🔐 Timelock Crypto</h1>
@@ -103,6 +102,10 @@
 
   <!-- Giải mã -->
   <section id="decryptTab" class="tab-content">
+    <div class="connect-section">
+      <button id="connectButtonDecrypt" onclick="connectWallet()">Connect Wallet</button>
+      <p id="walletStatusDecrypt">Trạng thái: Chưa kết nối</p>
+    </div>
     <label>📥 Nhập mã đã mã hóa:</label>
     <textarea id="decryptionInput" placeholder="📥 Dán mã đã mã hóa..." rows="7"></textarea>
     <button id="decryptButton" onclick="decrypt()">🔓 Giải mã</button>
@@ -146,27 +149,20 @@
       navigator.clipboard.writeText("0xcE6320183252CD965a70D4a9B6F30D2877a2188E").then(() => alert("✅ Đã sao chép địa chỉ ví!"));
     }
 
-    let metaMaskSDK = new MetaMaskSDK({
-      dappMetadata: {
-        name: "Timelock Crypto",
-        url: window.location.href,
-      },
-      preferDesktop: false, // Prioritize mobile
-    });
-
     async function connectWallet() {
+      console.log('Trying to connect wallet');
       try {
-        const ethereum = metaMaskSDK.getProvider(); // Get SDK provider
-        if (!ethereum.isMetaMask) {
-          alert('Vui lòng mở trang này trong MetaMask browser hoặc quét QR từ app MetaMask!');
-          return;
-        }
+        const MMSDK = new MetaMaskSDK({
+          dappMetadata: { name: "Timelock Crypto", url: window.location.href },
+        });
+        const ethereum = MMSDK.getProvider();
         const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
         document.getElementById("walletStatus").textContent = "Trạng thái: Đã kết nối!";
+        document.getElementById("walletStatusDecrypt").textContent = "Trạng thái: Đã kết nối!";
         console.log('Connected accounts:', accounts);
       } catch (error) {
-        console.error('Lỗi connect:', error);
-        alert('Lỗi connect ví: ' + error.message);
+        console.error('Connect error:', error);
+        alert('Lỗi connect ví: ' + error.message + '. Vui lòng mở trang này trong MetaMask browser hoặc cài app MetaMask.');
       }
     }
 
