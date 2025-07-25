@@ -22,11 +22,7 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     .output-block { margin-top: 20px; }
-
-    .time-invalid {
-      border: 2px solid red !important;
-    }
-
+    .time-invalid { border: 2px solid red !important; }
     textarea, input {
       width: 100%; margin-top: 6px; margin-bottom: 14px; padding: 8px;
       border-radius: 6px; border: none; font-size: 1rem;
@@ -35,8 +31,6 @@
       padding: 10px 20px; background: #ffd700; color: #000; font-weight: bold;
       border: none; border-radius: 6px; cursor: pointer;
     }
-
-    /* Popup thanh toán */
     #paymentOverlay {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(0,0,0,0.85); z-index: 999; display: none;
@@ -46,33 +40,19 @@
       background: #111; padding: 30px; border-radius: 16px; text-align: center;
       color: white; width: 90%; max-width: 360px; position: relative;
     }
-    .payment-box img.logo {
-      width: 60px; margin-bottom: 12px;
-    }
-    .qr {
-      width: 200px; height: 200px; background: white; margin: auto;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .wallet, .chain {
-      margin: 10px 0; font-size: 0.95rem; word-break: break-word;
-    }
+    .payment-box img.logo { width: 60px; margin-bottom: 12px; }
+    .qr { width: 200px; height: 200px; background: white; margin: auto; display: flex; align-items: center; justify-content: center; }
+    .wallet, .chain { margin: 10px 0; font-size: 0.95rem; word-break: break-word; }
     .spinner {
       margin: 16px auto; width: 30px; height: 30px;
       border: 4px solid #ffd700; border-top: 4px solid transparent;
       border-radius: 50%; animation: spin 1s linear infinite;
     }
-    @keyframes spin {
-      0% { transform: rotate(0deg);}
-      100% { transform: rotate(360deg);}
-    }
-    .close-btn {
-      position: absolute; top: 8px; right: 12px;
-      background: transparent; color: #fff; font-size: 20px;
-      border: none; cursor: pointer;
-    }
-    .qr img { width: 100%; height: 100%; } /* Thêm để hiển thị QR */
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .close-btn { position: absolute; top: 8px; right: 12px; background: transparent; color: #fff; font-size: 20px; border: none; cursor: pointer; }
+    .qr img { width: 100%; height: 100%; }
+    .notice { color: #ff4444; font-size: 14px; margin-top: 10px; text-align: center; }
   </style>
-  <!-- Add Lit SDK and ethers.js -->
   <script src="https://cdn.litprotocol.com/sdk/2.3.30/lit.min.js"></script>
   <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
 </head>
@@ -85,26 +65,20 @@
     <div class="tab-button" onclick="switchTab('decryptTab')">🔓 Giải mã</div>
   </div>
 
-  <!-- Mã hóa -->
   <section id="encryptTab" class="tab-content active">
     <label>📝 Ghi chú:</label>
     <textarea id="noteInput" placeholder="Nhập ghi chú..."></textarea>
-
     <label>₿ Mã Crypto/Forex:</label>
     <input id="coinInput" placeholder="Ví dụ: BTC/USDT" oninput="suggestCoins()" autocomplete="off"/>
     <div id="coinSuggestions" class="suggestions"></div>
-
     <div id="livePrice" class="price-display"></div>
-
     <label>💰 Giá mở khoá:</label>
     <input id="targetPrice" oninput="validatePriceInput(this)" placeholder="Giá cao hơn"/>
     <input id="minPrice" oninput="validatePriceInput(this)" placeholder="Giá thấp hơn hiện tại (tùy chọn)"/>
-
     <label>⏰ Thời gian mở khóa:</label>
     <input type="datetime-local" id="unlockTime"/>
-
     <button onclick="validateBeforeEncrypt()">🔐 Mã hóa</button>
-
+    <div id="encryptNotice" class="notice">Lưu ý: Cần kết nối ví (MetaMask) để mã hóa!</div>
     <div class="output-block">
       <label>⛓️ Kết quả mã hóa:</label>
       <textarea id="encryptedOutput" placeholder="🔒 Mã đã mã hóa..." readonly rows="6"></textarea>
@@ -112,7 +86,6 @@
     </div>
   </section>
 
-  <!-- Thông báo -->
   <section id="infoTab" class="tab-content">
     <p>📌 Website TimeLock Ghi Chú giúp bạn bảo vệ thông tin bằng thời gian và giá coin.</p>
     <p>💵 Phí: 0.5 USDT/ngày</p>
@@ -120,7 +93,6 @@
     <p>🚫 Không mã hóa passphrase/seed/private key.</p>
   </section>
 
-  <!-- Giải mã -->
   <section id="decryptTab" class="tab-content">
     <label>📥 Nhập mã đã mã hóa:</label>
     <textarea id="decryptionInput" placeholder="📥 Dán mã đã mã hóa..." rows="7"></textarea>
@@ -133,7 +105,6 @@
     </div>
   </section>
 
-  <!-- Popup Thanh toán (tạm giữ, nhưng chỉ dùng nếu cần) -->
   <div id="paymentOverlay">
     <div class="payment-box">
       <button class="close-btn" onclick="closePaymentPopup()">X</button>
