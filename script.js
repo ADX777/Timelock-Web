@@ -8,10 +8,14 @@ let walletProvider = null; // Lưu provider sau khi connect
 
 // Khởi tạo Web3Modal với WalletConnect v2
 const Web3Modal = window.Web3Modal.default;
-let web3Modal;
+let web3Modal = null;
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   try {
+    // Kiểm tra và khởi tạo Web3Modal
+    if (typeof window.WalletConnectProvider === 'undefined') {
+      throw new Error('WalletConnectProvider không được load từ CDN. Vui lòng kiểm tra kết nối mạng.');
+    }
     web3Modal = new Web3Modal({
       network: 'binanceSmartChain', // Sử dụng BNB chain
       cacheProvider: true, // Lưu provider đã chọn
@@ -68,6 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     });
+    console.log('Web3Modal initialized successfully');
   } catch (error) {
     console.error('Lỗi khởi tạo Web3Modal:', error);
     document.getElementById("connectError").style.display = "block";
@@ -79,7 +84,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function connectWallet() {
   try {
-    if (!web3Modal) throw new Error("Web3Modal chưa được khởi tạo!");
+    if (!web3Modal) {
+      throw new Error('Web3Modal chưa được khởi tạo. Vui lòng làm mới trang.');
+    }
     const provider = await web3Modal.connect();
     walletProvider = new ethers.providers.Web3Provider(provider);
     const accounts = await walletProvider.listAccounts();
