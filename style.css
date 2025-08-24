@@ -994,6 +994,18 @@ body {
 }
 
 /* Responsive Design */
+/* Positions Grid (1..12) */
+.positions-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--spacing-3);
+  margin-bottom: var(--spacing-4);
+}
+
+.position-select {
+  padding: var(--spacing-3);
+}
+
 @media (max-width: 768px) {
   .header-content {
     padding: 0 var(--spacing-4);
@@ -1033,6 +1045,10 @@ body {
   .random-numbers-display {
     grid-template-columns: repeat(4, 1fr);
   }
+
+  .positions-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
   
   .modal-content {
     width: 95%;
@@ -1042,6 +1058,10 @@ body {
 
 @media (max-width: 480px) {
   .random-numbers-display {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .positions-grid {
     grid-template-columns: repeat(3, 1fr);
   }
   
