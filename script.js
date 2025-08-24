@@ -44,11 +44,11 @@ class QuantumVault {
       });
     }
 
-    // Seed phrase input validation
-    const seedphraseInput = document.getElementById('seedphrase-textarea');
-    if (seedphraseInput) {
-      seedphraseInput.addEventListener('input', (e) => {
-        this.validateSeedPhrase(e.target.value);
+    // Secret note input validation (ASCII, no accents)
+    const secretNoteInput = document.getElementById('secret-note-textarea');
+    if (secretNoteInput) {
+      secretNoteInput.addEventListener('input', (e) => {
+        this.validateSecretNote(e.target.value);
       });
     }
   }
@@ -72,15 +72,15 @@ class QuantumVault {
 
   // Input Method Toggle
   toggleInputMethod(method) {
-    const seedphraseSection = document.getElementById('seedphrase-input');
-    const randomSection = document.getElementById('random-input');
+    const noteSection = document.getElementById('note-input');
+    const positionsSection = document.getElementById('positions-input');
 
-    if (method === 'seedphrase') {
-      seedphraseSection.style.display = 'block';
-      randomSection.style.display = 'none';
+    if (method === 'note') {
+      if (noteSection) noteSection.style.display = 'block';
+      if (positionsSection) positionsSection.style.display = 'none';
     } else {
-      seedphraseSection.style.display = 'none';
-      randomSection.style.display = 'block';
+      if (noteSection) noteSection.style.display = 'none';
+      if (positionsSection) positionsSection.style.display = 'block';
     }
   }
 
@@ -200,46 +200,45 @@ class QuantumVault {
     }
   }
 
-  // Random Number Generation
-  generateRandomNumbers() {
-    const numbers = [];
-    const slots = document.querySelectorAll('.number-slot');
-    
-    // Generate cryptographically secure random numbers
-    for (let i = 0; i < 12; i++) {
-      const randomNum = Math.floor(Math.random() * 10);
-      numbers.push(randomNum);
-    }
-
-    // Animate the reveal
-    slots.forEach((slot, index) => {
-      setTimeout(() => {
-        slot.textContent = numbers[index];
-        slot.classList.add('revealed');
-      }, index * 100);
-    });
-
-    return numbers.join('');
+  // Positions (1..12) helpers
+  getSelectedPositions() {
+    const selects = Array.from(document.querySelectorAll('#positions-grid .position-select'));
+    return selects.map(sel => sel.value ? parseInt(sel.value, 10) : null);
   }
 
-  // Seed Phrase Validation
-  validateSeedPhrase(phrase) {
-    const words = phrase.trim().split(/\s+/);
-    const validLengths = [12, 24];
-    
-    if (!validLengths.includes(words.length)) {
-      this.showInputError('seedphrase-textarea', 'Seed phrase must be 12 or 24 words');
+  validatePositions() {
+    const values = this.getSelectedPositions();
+    const allSelected = values.every(v => Number.isInteger(v) && v >= 1 && v <= 12);
+    const positionsGrid = document.getElementById('positions-grid');
+    if (!allSelected) {
+      if (positionsGrid) {
+        positionsGrid.style.border = '2px solid var(--error)';
+        positionsGrid.style.borderRadius = 'var(--radius-lg)';
+        positionsGrid.style.padding = 'var(--spacing-3)';
+      }
       return false;
     }
+    if (positionsGrid) {
+      positionsGrid.style.border = '2px solid var(--success)';
+      positionsGrid.style.borderRadius = 'var(--radius-lg)';
+      positionsGrid.style.padding = 'var(--spacing-3)';
+    }
+    return true;
+  }
 
-    // Check for non-ASCII characters
+  // Secret Note Validation (ASCII only, no accents)
+  validateSecretNote(note) {
+    const trimmed = note.trim();
+    if (!trimmed) {
+      this.showInputError('secret-note-textarea', 'Vui lòng nhập ghi chú');
+      return false;
+    }
     const nonAsciiRegex = /[^\x00-\x7F]/;
-    if (nonAsciiRegex.test(phrase)) {
-      this.showInputError('seedphrase-textarea', 'Only ASCII characters allowed');
+    if (nonAsciiRegex.test(trimmed)) {
+      this.showInputError('secret-note-textarea', 'Chỉ cho phép ký tự ASCII, không dấu');
       return false;
     }
-
-    this.clearInputError('seedphrase-textarea');
+    this.clearInputError('secret-note-textarea');
     return true;
   }
 
@@ -254,14 +253,18 @@ class QuantumVault {
       // Get input data
       const inputMethod = document.querySelector('input[name="inputMethod"]:checked').value;
       let secretData = '';
-      
-      if (inputMethod === 'seedphrase') {
-        secretData = document.getElementById('seedphrase-textarea').value.trim();
-        if (!this.validateSeedPhrase(secretData)) {
+      if (inputMethod === 'note') {
+        secretData = document.getElementById('secret-note-textarea').value.trim();
+        if (!this.validateSecretNote(secretData)) {
           return;
         }
-      } else {
-        secretData = this.generateRandomNumbers();
+      } else if (inputMethod === 'positions') {
+        if (!this.validatePositions()) {
+          this.showToast('Vui lòng chọn đủ 12 vị trí (1..12)', 'error');
+          return;
+        }
+        const positions = this.getSelectedPositions();
+        secretData = positions.join(',');
       }
 
       const securityNote = document.getElementById('security-note').value.trim();
@@ -689,9 +692,14 @@ class QuantumVault {
       return false;
     }
 
-    if (inputMethod === 'seedphrase') {
-      const seedphrase = document.getElementById('seedphrase-textarea').value.trim();
-      if (!this.validateSeedPhrase(seedphrase)) {
+    if (inputMethod === 'note') {
+      const note = document.getElementById('secret-note-textarea').value.trim();
+      if (!this.validateSecretNote(note)) {
+        return false;
+      }
+    }
+    if (inputMethod === 'positions') {
+      if (!this.validatePositions()) {
         return false;
       }
     }
