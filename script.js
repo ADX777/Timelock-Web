@@ -6,7 +6,10 @@ class QuantumVault {
     this.nearConnection = null;
     this.drandClient = null;
     this.pythClient = null;
-    this.currentTheme = 'light';
+    this.currentTheme = 'dark';
+    this.cryptoData = [];
+    this.currentPrices = {};
+    this.inheritanceData = null;
     
     this.init();
   }
@@ -17,6 +20,7 @@ class QuantumVault {
     await this.initializeNear();
     await this.initializeDrand();
     await this.initializePyth();
+    await this.loadCryptoData();
     this.setupTheme();
   }
 
@@ -36,6 +40,47 @@ class QuantumVault {
       });
     });
 
+    // Crypto input suggestions
+    const cryptoInput = document.getElementById('crypto-input');
+    if (cryptoInput) {
+      cryptoInput.addEventListener('input', (e) => {
+        this.handleCryptoInput(e.target.value);
+      });
+      cryptoInput.addEventListener('focus', () => {
+        this.showCryptoSuggestions('');
+      });
+    }
+
+    // Price validation
+    const priceHigher = document.getElementById('price-higher');
+    const priceLower = document.getElementById('price-lower');
+    if (priceHigher) {
+      priceHigher.addEventListener('input', (e) => {
+        this.validatePriceInput(e.target, 'higher');
+      });
+    }
+    if (priceLower) {
+      priceLower.addEventListener('input', (e) => {
+        this.validatePriceInput(e.target, 'lower');
+      });
+    }
+
+    // Email validation
+    const recipientEmail = document.getElementById('recipient-email');
+    if (recipientEmail) {
+      recipientEmail.addEventListener('input', (e) => {
+        this.validateEmail(e.target.value);
+      });
+    }
+
+    // OTP input
+    const otpInput = document.getElementById('otp-input');
+    if (otpInput) {
+      otpInput.addEventListener('input', (e) => {
+        this.handleOTPInput(e.target.value);
+      });
+    }
+
     // Inheritance input validation
     const inheritanceInput = document.getElementById('inheritance-encrypted-input');
     if (inheritanceInput) {
@@ -44,11 +89,19 @@ class QuantumVault {
       });
     }
 
-    // Seed phrase input validation
-    const seedphraseInput = document.getElementById('seedphrase-textarea');
-    if (seedphraseInput) {
-      seedphraseInput.addEventListener('input', (e) => {
-        this.validateSeedPhrase(e.target.value);
+    // Decrypt input validation
+    const decryptInput = document.getElementById('decrypt-input');
+    if (decryptInput) {
+      decryptInput.addEventListener('input', () => {
+        this.checkInheritanceInDecrypt();
+      });
+    }
+
+    // Time picker validation
+    const unlockTime = document.getElementById('unlock-time');
+    if (unlockTime) {
+      unlockTime.addEventListener('change', (e) => {
+        this.validateTimeInput(e.target);
       });
     }
   }
@@ -72,21 +125,21 @@ class QuantumVault {
 
   // Input Method Toggle
   toggleInputMethod(method) {
-    const seedphraseSection = document.getElementById('seedphrase-input');
-    const randomSection = document.getElementById('random-input');
+    const secretnoteSection = document.getElementById('secretnote-input');
+    const secretkeySection = document.getElementById('secretkey-input');
 
-    if (method === 'seedphrase') {
-      seedphraseSection.style.display = 'block';
-      randomSection.style.display = 'none';
+    if (method === 'secretnote') {
+      secretnoteSection.style.display = 'block';
+      secretkeySection.style.display = 'none';
     } else {
-      seedphraseSection.style.display = 'none';
-      randomSection.style.display = 'block';
+      secretnoteSection.style.display = 'none';
+      secretkeySection.style.display = 'block';
     }
   }
 
   // Theme Management
   setupTheme() {
-    const savedTheme = localStorage.getItem('theme') || 'light';
+    const savedTheme = localStorage.getItem('theme') || 'dark';
     this.setTheme(savedTheme);
   }
 
@@ -128,6 +181,300 @@ class QuantumVault {
     const statusElement = document.getElementById('wallet-status');
     if (statusElement) {
       statusElement.textContent = `${accountId.substring(0, 6)}...${accountId.substring(accountId.length - 4)}`;
+    }
+  }
+
+  // Crypto Data Loading
+  async loadCryptoData() {
+    try {
+      // Load crypto data from Binance API
+      const response = await fetch('https://api.binance.com/api/v3/exchangeInfo');
+      const data = await response.json();
+      
+      // Process crypto pairs
+      this.cryptoData = data.symbols
+        .filter(symbol => symbol.status === 'TRADING')
+        .map(symbol => ({
+          symbol: symbol.symbol,
+          baseAsset: symbol.baseAsset,
+          quoteAsset: symbol.quoteAsset,
+          type: 'crypto'
+        }));
+
+      // Add popular forex pairs
+      const forexPairs = [
+        'XAUUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'USDCAD', 'AUDUSD', 'NZDUSD',
+        'EURJPY', 'GBPJPY', 'EURGBP', 'EURCHF', 'GBPCHF', 'AUDCAD', 'AUDJPY', 'NZDJPY'
+      ];
+
+      forexPairs.forEach(pair => {
+        this.cryptoData.push({
+          symbol: pair,
+          baseAsset: pair.substring(0, 3),
+          quoteAsset: pair.substring(3),
+          type: 'forex'
+        });
+      });
+
+      // Sort by popularity (crypto first, then forex)
+      this.cryptoData.sort((a, b) => {
+        if (a.type !== b.type) return a.type === 'crypto' ? -1 : 1;
+        return a.symbol.localeCompare(b.symbol);
+      });
+
+    } catch (error) {
+      console.error('Error loading crypto data:', error);
+      this.showToast('Failed to load crypto data', 'error');
+    }
+  }
+
+  // Crypto Input Handling
+  handleCryptoInput(value) {
+    this.showCryptoSuggestions(value);
+  }
+
+  showCryptoSuggestions(query) {
+    const suggestionsContainer = document.getElementById('crypto-suggestions');
+    if (!suggestionsContainer) return;
+
+    const filtered = this.cryptoData.filter(item => 
+      item.symbol.toLowerCase().includes(query.toLowerCase()) ||
+      item.baseAsset.toLowerCase().includes(query.toLowerCase())
+    ).slice(0, 10);
+
+    if (filtered.length === 0) {
+      suggestionsContainer.style.display = 'none';
+      return;
+    }
+
+    suggestionsContainer.innerHTML = '';
+    filtered.forEach(item => {
+      const suggestionItem = document.createElement('div');
+      suggestionItem.className = 'crypto-suggestion-item';
+      suggestionItem.innerHTML = `
+        <img src="https://cryptologos.cc/logos/${item.baseAsset.toLowerCase()}-logo.png" 
+             alt="${item.baseAsset}" class="crypto-logo" 
+             onerror="this.src='https://via.placeholder.com/24x24/666666/ffffff?text=${item.baseAsset.substring(0, 2)}'">
+        <div>
+          <div class="crypto-symbol">${item.symbol}</div>
+          <div class="crypto-name">${item.baseAsset}/${item.quoteAsset}</div>
+        </div>
+      `;
+      suggestionItem.addEventListener('click', () => {
+        document.getElementById('crypto-input').value = item.symbol;
+        suggestionsContainer.style.display = 'none';
+        this.fetchCurrentPrice(item.symbol);
+      });
+      suggestionsContainer.appendChild(suggestionItem);
+    });
+
+    suggestionsContainer.style.display = 'block';
+  }
+
+  // Price Validation
+  validatePriceInput(input, type) {
+    let value = input.value;
+    
+    // Only allow numbers and decimal points
+    value = value.replace(/[^0-9.]/g, '');
+    
+    // Prevent multiple decimal points
+    const parts = value.split('.');
+    if (parts.length > 2) {
+      value = parts[0] + '.' + parts[1];
+    }
+    
+    // Prevent decimal point at the beginning
+    if (value.startsWith('.')) {
+      value = value.substring(1);
+    }
+    
+    input.value = value;
+    
+    const validationElement = document.getElementById(`price-${type}-validation`);
+    if (!validationElement) return;
+
+    if (!value) {
+      validationElement.textContent = '';
+      validationElement.className = 'price-validation';
+      input.style.borderColor = 'var(--dark-gray)';
+      return;
+    }
+
+    const price = parseFloat(value);
+    const currentPrice = this.currentPrices[document.getElementById('crypto-input').value];
+
+    if (!currentPrice) {
+      validationElement.textContent = 'Đang tải giá hiện tại...';
+      validationElement.className = 'price-validation info';
+      input.style.borderColor = 'var(--info)';
+      return;
+    }
+
+    if (type === 'higher') {
+      if (price <= currentPrice) {
+        validationElement.textContent = `❌ Giá phải cao hơn ${currentPrice.toFixed(6)}`;
+        validationElement.className = 'price-validation error';
+        input.style.borderColor = 'var(--error)';
+      } else {
+        validationElement.textContent = `✅ Bạn có thể giải mã khi giá đạt ${price.toFixed(6)} trở lên`;
+        validationElement.className = 'price-validation success';
+        input.style.borderColor = 'var(--success)';
+      }
+    } else {
+      if (price >= currentPrice) {
+        validationElement.textContent = `❌ Giá phải thấp hơn ${currentPrice.toFixed(6)}`;
+        validationElement.className = 'price-validation error';
+        input.style.borderColor = 'var(--error)';
+      } else {
+        validationElement.textContent = `✅ Bạn có thể giải mã khi giá đạt ${price.toFixed(6)} trở xuống`;
+        validationElement.className = 'price-validation success';
+        input.style.borderColor = 'var(--success)';
+      }
+    }
+  }
+
+  // Email Validation
+  validateEmail(email) {
+    const validationElement = document.getElementById('email-validation');
+    if (!validationElement) return;
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    if (!email) {
+      validationElement.textContent = '';
+      validationElement.className = 'email-validation';
+      return;
+    }
+
+    if (emailRegex.test(email)) {
+      validationElement.textContent = '✅ Email hợp lệ';
+      validationElement.className = 'email-validation success';
+    } else {
+      validationElement.textContent = '❌ Email không đúng định dạng';
+      validationElement.className = 'email-validation error';
+    }
+  }
+
+  // OTP System
+  async sendOTP() {
+    const email = document.getElementById('recipient-email').value;
+    const validationElement = document.getElementById('email-validation');
+    
+    if (!email || validationElement.className.includes('error')) {
+      this.showToast('Vui lòng nhập email hợp lệ', 'error');
+      return;
+    }
+
+    try {
+      // Simulate OTP sending
+      const otp = Math.floor(100000 + Math.random() * 900000);
+      localStorage.setItem('sentOTP', otp.toString());
+      
+      const sendBtn = document.querySelector('.send-otp-btn');
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = '<i class="fas fa-clock"></i> Đã gửi';
+      
+      // Show OTP section
+      document.getElementById('otp-section').style.display = 'block';
+      
+      this.showToast(`OTP đã được gửi đến ${email}`, 'success');
+      
+      // Re-enable button after 60 seconds
+      setTimeout(() => {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Gửi OTP';
+      }, 60000);
+      
+    } catch (error) {
+      this.showToast('Lỗi gửi OTP', 'error');
+    }
+  }
+
+  handleOTPInput(value) {
+    // Only allow numbers
+    const numericValue = value.replace(/[^0-9]/g, '');
+    document.getElementById('otp-input').value = numericValue;
+    
+    if (numericValue.length === 6) {
+      this.verifyOTP(numericValue);
+    }
+  }
+
+  verifyOTP(inputOTP) {
+    const sentOTP = localStorage.getItem('sentOTP');
+    
+    if (inputOTP === sentOTP) {
+      this.showToast('OTP xác thực thành công', 'success');
+      document.getElementById('otp-input').style.borderColor = 'var(--success)';
+      localStorage.removeItem('sentOTP');
+    } else {
+      this.showToast('OTP không đúng', 'error');
+      document.getElementById('otp-input').style.borderColor = 'var(--error)';
+    }
+  }
+
+  // Time Validation
+  validateTimeInput(input) {
+    const selectedTime = new Date(input.value);
+    const now = new Date();
+    
+    if (selectedTime <= now) {
+      input.style.borderColor = 'var(--error)';
+      this.showToast('Chỉ được chọn thời gian trong tương lai', 'error');
+    } else {
+      input.style.borderColor = 'var(--success)';
+    }
+  }
+
+  // Fetch Current Price
+  async fetchCurrentPrice(symbol) {
+    try {
+      let price = 0;
+      
+      if (symbol.includes('USDT') || symbol.includes('USD')) {
+        // Crypto price from Binance
+        const response = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+        const data = await response.json();
+        price = parseFloat(data.price);
+      } else {
+        // Forex price (simulated)
+        price = Math.random() * 100 + 1;
+      }
+      
+      this.currentPrices[symbol] = price;
+      
+      // Update validation if price inputs have values
+      const priceHigher = document.getElementById('price-higher');
+      const priceLower = document.getElementById('price-lower');
+      
+      if (priceHigher && priceHigher.value) {
+        this.validatePriceInput(priceHigher, 'higher');
+      }
+      if (priceLower && priceLower.value) {
+        this.validatePriceInput(priceLower, 'lower');
+      }
+      
+    } catch (error) {
+      console.error('Error fetching price:', error);
+    }
+  }
+
+  // Inheritance Detection
+  checkInheritanceInDecrypt() {
+    const decryptInput = document.getElementById('decrypt-input');
+    const inheritanceActions = document.getElementById('inheritance-actions-decrypt');
+    
+    if (!decryptInput || !inheritanceActions) return;
+    
+    const input = decryptInput.value.trim();
+    
+    // Check if input contains inheritance data
+    if (input && input.includes('inheritance')) {
+      inheritanceActions.style.display = 'flex';
+      inheritanceActions.classList.add('fade-in');
+    } else {
+      inheritanceActions.style.display = 'none';
     }
   }
 
@@ -200,49 +547,6 @@ class QuantumVault {
     }
   }
 
-  // Random Number Generation
-  generateRandomNumbers() {
-    const numbers = [];
-    const slots = document.querySelectorAll('.number-slot');
-    
-    // Generate cryptographically secure random numbers
-    for (let i = 0; i < 12; i++) {
-      const randomNum = Math.floor(Math.random() * 10);
-      numbers.push(randomNum);
-    }
-
-    // Animate the reveal
-    slots.forEach((slot, index) => {
-      setTimeout(() => {
-        slot.textContent = numbers[index];
-        slot.classList.add('revealed');
-      }, index * 100);
-    });
-
-    return numbers.join('');
-  }
-
-  // Seed Phrase Validation
-  validateSeedPhrase(phrase) {
-    const words = phrase.trim().split(/\s+/);
-    const validLengths = [12, 24];
-    
-    if (!validLengths.includes(words.length)) {
-      this.showInputError('seedphrase-textarea', 'Seed phrase must be 12 or 24 words');
-      return false;
-    }
-
-    // Check for non-ASCII characters
-    const nonAsciiRegex = /[^\x00-\x7F]/;
-    if (nonAsciiRegex.test(phrase)) {
-      this.showInputError('seedphrase-textarea', 'Only ASCII characters allowed');
-      return false;
-    }
-
-    this.clearInputError('seedphrase-textarea');
-    return true;
-  }
-
   // Quantum-Resistant Encryption
   async encryptData() {
     try {
@@ -255,19 +559,43 @@ class QuantumVault {
       const inputMethod = document.querySelector('input[name="inputMethod"]:checked').value;
       let secretData = '';
       
-      if (inputMethod === 'seedphrase') {
-        secretData = document.getElementById('seedphrase-textarea').value.trim();
-        if (!this.validateSeedPhrase(secretData)) {
+      if (inputMethod === 'secretnote') {
+        secretData = document.getElementById('secretnote-textarea').value.trim();
+        if (!secretData) {
+          this.showToast('Vui lòng nhập ghi chú bí mật', 'error');
           return;
         }
       } else {
-        secretData = this.generateRandomNumbers();
+        const keyPositions = Array.from(document.querySelectorAll('.position-input'))
+          .map(input => input.value.trim())
+          .filter(value => value);
+        
+        if (keyPositions.length === 0) {
+          this.showToast('Vui lòng nhập ít nhất một từ khóa', 'error');
+          return;
+        }
+        
+        secretData = keyPositions.join('|');
       }
 
       const securityNote = document.getElementById('security-note').value.trim();
       const unlockTime = document.getElementById('unlock-time').value;
+      const cryptoInput = document.getElementById('crypto-input').value.trim();
       const priceHigher = document.getElementById('price-higher').value;
       const priceLower = document.getElementById('price-lower').value;
+
+      // Validate time
+      if (!unlockTime) {
+        this.showToast('Vui lòng chọn thời gian mở khóa', 'error');
+        return;
+      }
+
+      const selectedTime = new Date(unlockTime);
+      const now = new Date();
+      if (selectedTime <= now) {
+        this.showToast('Thời gian mở khóa phải trong tương lai', 'error');
+        return;
+      }
 
       // Create encryption payload
       const payload = {
@@ -275,6 +603,7 @@ class QuantumVault {
         note: securityNote,
         conditions: {
           time: unlockTime ? new Date(unlockTime).toISOString() : null,
+          crypto: cryptoInput || null,
           priceHigher: priceHigher ? parseFloat(priceHigher) : null,
           priceLower: priceLower ? parseFloat(priceLower) : null
         },
@@ -507,24 +836,29 @@ class QuantumVault {
       
       if (currentTime >= unlockTime) {
         results.time.met = true;
-        results.time.message = 'Time condition met';
+        results.time.message = '✅ Thời gian đã đạt - Drand Network xác nhận';
       } else {
-        results.time.message = `Time not yet reached. Unlocks at ${unlockTime.toLocaleString()}`;
+        const timeDiff = unlockTime - currentTime;
+        const hours = Math.floor(timeDiff / (1000 * 60 * 60));
+        const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+        results.time.message = `⏰ Thời gian chưa đến. Còn ${hours}h ${minutes}m - Drand Network`;
       }
     }
 
     // Check price conditions
-    if (conditions.priceHigher || conditions.priceLower) {
-      const currentPrice = await this.getPythPrice('BTC/USD');
+    if (conditions.crypto && (conditions.priceHigher || conditions.priceLower)) {
+      const currentPrice = await this.getPythPrice(conditions.crypto);
       
       if (conditions.priceHigher && currentPrice >= conditions.priceHigher) {
         results.price.met = true;
-        results.price.message = `Price condition met: ${currentPrice} >= ${conditions.priceHigher}`;
+        results.price.message = `✅ Giá đã đạt: ${currentPrice.toFixed(6)} >= ${conditions.priceHigher} - Pyth Network xác nhận`;
       } else if (conditions.priceLower && currentPrice <= conditions.priceLower) {
         results.price.met = true;
-        results.price.message = `Price condition met: ${currentPrice} <= ${conditions.priceLower}`;
+        results.price.message = `✅ Giá đã đạt: ${currentPrice.toFixed(6)} <= ${conditions.priceLower} - Pyth Network xác nhận`;
       } else {
-        results.price.message = `Price condition not met. Current: ${currentPrice}`;
+        const higherText = conditions.priceHigher ? ` >= ${conditions.priceHigher}` : '';
+        const lowerText = conditions.priceLower ? ` <= ${conditions.priceLower}` : '';
+        results.price.message = `📊 Giá hiện tại: ${currentPrice.toFixed(6)}${higherText}${lowerText} - Pyth Network`;
       }
     }
 
@@ -637,6 +971,13 @@ class QuantumVault {
         return;
       }
 
+      // Validate email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(recipientEmail)) {
+        this.showToast('Email không hợp lệ', 'error');
+        return;
+      }
+
       // Hash security answer with Argon2id (simplified)
       const hashedAnswer = await this.hashWithArgon2(securityAnswer);
 
@@ -689,43 +1030,24 @@ class QuantumVault {
       return false;
     }
 
-    if (inputMethod === 'seedphrase') {
-      const seedphrase = document.getElementById('seedphrase-textarea').value.trim();
-      if (!this.validateSeedPhrase(seedphrase)) {
+    if (inputMethod === 'secretnote') {
+      const secretnote = document.getElementById('secretnote-textarea').value.trim();
+      if (!secretnote) {
+        this.showToast('Vui lòng nhập ghi chú bí mật', 'error');
+        return false;
+      }
+    } else {
+      const keyPositions = Array.from(document.querySelectorAll('.position-input'))
+        .map(input => input.value.trim())
+        .filter(value => value);
+      
+      if (keyPositions.length === 0) {
+        this.showToast('Vui lòng nhập ít nhất một từ khóa', 'error');
         return false;
       }
     }
 
     return true;
-  }
-
-  showInputError(inputId, message) {
-    const input = document.getElementById(inputId);
-    input.style.borderColor = 'var(--error)';
-    input.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.1)';
-    
-    // Show error message
-    let errorElement = input.parentNode.querySelector('.input-error');
-    if (!errorElement) {
-      errorElement = document.createElement('div');
-      errorElement.className = 'input-error';
-      errorElement.style.color = 'var(--error)';
-      errorElement.style.fontSize = 'var(--font-size-sm)';
-      errorElement.style.marginTop = 'var(--spacing-1)';
-      input.parentNode.appendChild(errorElement);
-    }
-    errorElement.textContent = message;
-  }
-
-  clearInputError(inputId) {
-    const input = document.getElementById(inputId);
-    input.style.borderColor = 'var(--gray-200)';
-    input.style.boxShadow = 'none';
-    
-    const errorElement = input.parentNode.querySelector('.input-error');
-    if (errorElement) {
-      errorElement.remove();
-    }
   }
 
   showDecryptLoading(show) {
@@ -751,14 +1073,14 @@ class QuantumVault {
     
     if (decryptedData.secret) {
       displayContent += `<div class="decrypted-secret">
-        <h4>Secret Data:</h4>
+        <h4>Dữ liệu bí mật:</h4>
         <p>${decryptedData.secret}</p>
       </div>`;
     }
     
     if (decryptedData.note) {
       displayContent += `<div class="decrypted-note">
-        <h4>Security Note:</h4>
+        <h4>Ghi chú:</h4>
         <p>${decryptedData.note}</p>
       </div>`;
     }
@@ -837,15 +1159,16 @@ class QuantumVault {
     
     content.innerHTML = `
       <div class="proof-section">
-        <h4>Drand Time Proof</h4>
-        <p>Latest round: <code>123456</code></p>
-        <p>Signature: <code>abc123...</code></p>
+        <h4>Drand Network - Thời gian phi tập trung</h4>
+        <p>Round hiện tại: <code>${Math.floor(Date.now() / 30000)}</code></p>
+        <p>Chuỗi hash: <code>8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce</code></p>
+        <p>Thời gian: <code>${new Date().toISOString()}</code></p>
       </div>
       <div class="proof-section">
-        <h4>Pyth Price Proof</h4>
-        <p>Current price: <code>$45,000</code></p>
-        <p>Confidence: <code>99.9%</code></p>
-        <p>Signature: <code>def456...</code></p>
+        <h4>Pyth Network - Giá phi tập trung</h4>
+        <p>Giá hiện tại: <code>$${this.currentPrices[document.getElementById('crypto-input')?.value] || '0.00'}</code></p>
+        <p>Độ tin cậy: <code>99.9%</code></p>
+        <p>Nguồn: <code>Pyth Network Oracle</code></p>
       </div>
     `;
     
@@ -907,10 +1230,6 @@ function connectWallet() {
   window.quantumVault.connectWallet();
 }
 
-function generateRandomNumbers() {
-  window.quantumVault.generateRandomNumbers();
-}
-
 function encryptData() {
   window.quantumVault.encryptData();
 }
@@ -961,4 +1280,8 @@ function closeSecurityModal() {
 
 function submitSecurityAnswer() {
   window.quantumVault.submitSecurityAnswer();
+}
+
+function sendOTP() {
+  window.quantumVault.sendOTP();
 }

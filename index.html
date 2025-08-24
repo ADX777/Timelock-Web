@@ -79,67 +79,99 @@
           <div class="input-method-section">
             <div class="method-toggle">
               <label class="toggle-option">
-                <input type="radio" name="inputMethod" value="seedphrase" checked>
+                <input type="radio" name="inputMethod" value="secretnote" checked>
                 <span class="toggle-label">
-                  <i class="fas fa-key"></i>
-                  Seed Phrase
+                  <i class="fas fa-sticky-note"></i>
+                  Ghi chú bí mật
                 </span>
               </label>
               <label class="toggle-option">
-                <input type="radio" name="inputMethod" value="random">
+                <input type="radio" name="inputMethod" value="secretkey">
                 <span class="toggle-label">
-                  <i class="fas fa-dice"></i>
-                  12 Số Random
+                  <i class="fas fa-key"></i>
+                  12 Vị trí từ khóa
                 </span>
               </label>
             </div>
           </div>
 
-          <!-- Seed Phrase Input -->
-          <div id="seedphrase-input" class="input-section">
+          <!-- Secret Note Input -->
+          <div id="secretnote-input" class="input-section">
             <label class="input-label">
-              <i class="fas fa-key"></i>
-              Seed Phrase (12 hoặc 24 từ)
+              <i class="fas fa-sticky-note"></i>
+              Ghi chú bí mật
             </label>
             <textarea 
-              id="seedphrase-textarea" 
-              placeholder="Nhập 12 hoặc 24 từ, chỉ chữ không dấu, cách nhau bằng khoảng trắng..."
+              id="secretnote-textarea" 
+              placeholder="Nhập ghi chú bí mật (không dấu)..."
               class="input-field"
               rows="3"
             ></textarea>
           </div>
 
-          <!-- Random Numbers Input -->
-          <div id="random-input" class="input-section" style="display: none;">
+          <!-- Secret Key Positions Input -->
+          <div id="secretkey-input" class="input-section" style="display: none;">
             <label class="input-label">
-              <i class="fas fa-dice"></i>
-              12 Số Random
+              <i class="fas fa-key"></i>
+              12 Vị trí từ khóa bí mật
             </label>
-            <div class="random-numbers-display" id="random-numbers">
-              <div class="number-slot">?</div>
-              <div class="number-slot">?</div>
-              <div class="number-slot">?</div>
-              <div class="number-slot">?</div>
-              <div class="number-slot">?</div>
-              <div class="number-slot">?</div>
-              <div class="number-slot">?</div>
-              <div class="number-slot">?</div>
-              <div class="number-slot">?</div>
-              <div class="number-slot">?</div>
-              <div class="number-slot">?</div>
-              <div class="number-slot">?</div>
+            <div class="key-positions-display" id="key-positions">
+              <div class="position-slot" data-position="1">
+                <span class="position-number">1</span>
+                <input type="text" class="position-input" placeholder="Từ khóa 1" maxlength="20">
+              </div>
+              <div class="position-slot" data-position="2">
+                <span class="position-number">2</span>
+                <input type="text" class="position-input" placeholder="Từ khóa 2" maxlength="20">
+              </div>
+              <div class="position-slot" data-position="3">
+                <span class="position-number">3</span>
+                <input type="text" class="position-input" placeholder="Từ khóa 3" maxlength="20">
+              </div>
+              <div class="position-slot" data-position="4">
+                <span class="position-number">4</span>
+                <input type="text" class="position-input" placeholder="Từ khóa 4" maxlength="20">
+              </div>
+              <div class="position-slot" data-position="5">
+                <span class="position-number">5</span>
+                <input type="text" class="position-input" placeholder="Từ khóa 5" maxlength="20">
+              </div>
+              <div class="position-slot" data-position="6">
+                <span class="position-number">6</span>
+                <input type="text" class="position-input" placeholder="Từ khóa 6" maxlength="20">
+              </div>
+              <div class="position-slot" data-position="7">
+                <span class="position-number">7</span>
+                <input type="text" class="position-input" placeholder="Từ khóa 7" maxlength="20">
+              </div>
+              <div class="position-slot" data-position="8">
+                <span class="position-number">8</span>
+                <input type="text" class="position-input" placeholder="Từ khóa 8" maxlength="20">
+              </div>
+              <div class="position-slot" data-position="9">
+                <span class="position-number">9</span>
+                <input type="text" class="position-input" placeholder="Từ khóa 9" maxlength="20">
+              </div>
+              <div class="position-slot" data-position="10">
+                <span class="position-number">10</span>
+                <input type="text" class="position-input" placeholder="Từ khóa 10" maxlength="20">
+              </div>
+              <div class="position-slot" data-position="11">
+                <span class="position-number">11</span>
+                <input type="text" class="position-input" placeholder="Từ khóa 11" maxlength="20">
+              </div>
+              <div class="position-slot" data-position="12">
+                <span class="position-number">12</span>
+                <input type="text" class="position-input" placeholder="Từ khóa 12" maxlength="20">
+              </div>
             </div>
-            <button class="generate-btn" onclick="generateRandomNumbers()">
-              <i class="fas fa-sync-alt"></i>
-              Tạo 12 số
-            </button>
           </div>
 
           <!-- Security Note -->
           <div class="input-section">
             <label class="input-label">
-              <i class="fas fa-sticky-note"></i>
-              Ghi chú bảo mật (tùy chọn)
+              <i class="fas fa-comment"></i>
+              Ghi chú (tùy chọn)
             </label>
             <textarea 
               id="security-note" 
@@ -162,15 +194,17 @@
                 <i class="fas fa-calendar-alt"></i>
                 Thời gian (bắt buộc)
               </label>
-              <input 
-                type="datetime-local" 
-                id="unlock-time" 
-                class="input-field"
-                required
-              >
-              <div class="condition-info">
-                <i class="fas fa-info-circle"></i>
-                Sử dụng nguồn thời gian phi tập trung (drand)
+              <div class="time-picker-container">
+                <input 
+                  type="datetime-local" 
+                  id="unlock-time" 
+                  class="input-field time-picker"
+                  required
+                >
+                <div class="time-picker-info">
+                  <i class="fas fa-info-circle"></i>
+                  Chỉ được chọn thời gian trong tương lai
+                </div>
               </div>
             </div>
 
@@ -180,28 +214,42 @@
                 <i class="fas fa-chart-line"></i>
                 Điều kiện giá (tùy chọn)
               </label>
+              
+              <!-- Crypto/Forex Selection -->
+              <div class="crypto-selection">
+                <input 
+                  type="text" 
+                  id="crypto-input" 
+                  placeholder="Nhập mã crypto/forex (ví dụ: BTC, XAUUSD)"
+                  class="input-field"
+                  autocomplete="off"
+                >
+                <div id="crypto-suggestions" class="crypto-suggestions"></div>
+              </div>
+
               <div class="price-inputs">
                 <div class="price-input-group">
-                  <label>Cao hơn</label>
+                  <label>Giá cao hơn</label>
                   <input 
-                    type="number" 
+                    type="text" 
                     id="price-higher" 
                     placeholder="Giá cao hơn"
-                    class="input-field"
-                    step="0.000001"
+                    class="input-field price-input"
                   >
+                  <div class="price-validation" id="price-higher-validation"></div>
                 </div>
                 <div class="price-input-group">
-                  <label>Thấp hơn</label>
+                  <label>Giá thấp hơn</label>
                   <input 
-                    type="number" 
+                    type="text" 
                     id="price-lower" 
                     placeholder="Giá thấp hơn"
-                    class="input-field"
-                    step="0.000001"
+                    class="input-field price-input"
                   >
+                  <div class="price-validation" id="price-lower-validation"></div>
                 </div>
               </div>
+              
               <div class="condition-info">
                 <i class="fas fa-info-circle"></i>
                 Sử dụng Pyth TWAP + confidence
@@ -278,12 +326,38 @@
                 <i class="fas fa-envelope"></i>
                 Email người nhận
               </label>
-              <input 
-                type="email" 
-                id="recipient-email" 
-                placeholder="email@example.com"
-                class="input-field"
-              >
+              <div class="email-input-container">
+                <input 
+                  type="email" 
+                  id="recipient-email" 
+                  placeholder="email@example.com"
+                  class="input-field email-input"
+                >
+                <button class="send-otp-btn" onclick="sendOTP()">
+                  <i class="fas fa-paper-plane"></i>
+                  Gửi OTP
+                </button>
+              </div>
+              <div class="email-validation" id="email-validation"></div>
+              
+              <!-- OTP Input -->
+              <div id="otp-section" class="otp-section" style="display: none;">
+                <label class="input-label">
+                  <i class="fas fa-shield-alt"></i>
+                  Mã OTP
+                </label>
+                <input 
+                  type="text" 
+                  id="otp-input" 
+                  placeholder="Nhập mã OTP 6 số"
+                  class="input-field otp-input"
+                  maxlength="6"
+                >
+                <div class="otp-info">
+                  <i class="fas fa-info-circle"></i>
+                  Kiểm tra email và thư mục spam
+                </div>
+              </div>
             </div>
 
             <!-- Security Message -->
@@ -348,21 +422,19 @@
                   <div class="price-input-group">
                     <label>Cao hơn</label>
                     <input 
-                      type="number" 
+                      type="text" 
                       id="inheritance-price-higher" 
                       placeholder="Giá cao hơn"
-                      class="input-field"
-                      step="0.000001"
+                      class="input-field price-input"
                     >
                   </div>
                   <div class="price-input-group">
                     <label>Thấp hơn</label>
                     <input 
-                      type="number" 
+                      type="text" 
                       id="inheritance-price-lower" 
                       placeholder="Giá thấp hơn"
-                      class="input-field"
-                      step="0.000001"
+                      class="input-field price-input"
                     >
                   </div>
                 </div>
@@ -416,6 +488,18 @@
             Giải mã
           </button>
 
+          <!-- Inheritance Actions (if applicable) -->
+          <div id="inheritance-actions-decrypt" class="inheritance-actions-decrypt" style="display: none;">
+            <button class="pulse-btn cancel-inheritance-btn" onclick="cancelInheritanceFromDecrypt()">
+              <i class="fas fa-times"></i>
+              Hủy thừa kế
+            </button>
+            <button class="pulse-btn view-status-btn" onclick="viewInheritanceStatusFromDecrypt()">
+              <i class="fas fa-info-circle"></i>
+              Xem tình trạng thừa kế
+            </button>
+          </div>
+
           <!-- Loading Indicator -->
           <div id="decrypt-loading" class="loading-section" style="display: none;">
             <div class="spinner"></div>
@@ -460,18 +544,6 @@
             <button class="proof-btn" onclick="viewProof()">
               <i class="fas fa-eye"></i>
               Xem bằng chứng
-            </button>
-          </div>
-
-          <!-- Inheritance Actions (if applicable) -->
-          <div id="inheritance-actions-decrypt" class="inheritance-actions-decrypt" style="display: none;">
-            <button class="pulse-btn cancel-inheritance-btn" onclick="cancelInheritanceFromDecrypt()">
-              <i class="fas fa-times"></i>
-              Hủy thừa kế
-            </button>
-            <button class="pulse-btn view-status-btn" onclick="viewInheritanceStatusFromDecrypt()">
-              <i class="fas fa-info-circle"></i>
-              Xem tình trạng thừa kế
             </button>
           </div>
 
