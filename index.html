@@ -3,284 +3,149 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>🔐 Timelock Crypto</title>
+  <title>🔐 Fintech Timelock – Quantum‑Safe</title>
   <link rel="stylesheet" href="style.css"/>
   <style>
     body {
       background: #000; color: #ffd700; font-family: sans-serif;
       margin: 0; padding: 20px;
     }
-    .tab-buttons {
-      display: flex; justify-content: space-around; margin-bottom: 20px;
-    }
-    .tab-button {
-      flex: 1; padding: 12px; text-align: center; background-color: #222;
-      color: #ffd700; border: 1px solid #444; cursor: pointer; font-weight: bold;
-      border-radius: 8px 8px 0 0; transition: background 0.3s;
-    }
+    .tab-buttons { display: flex; justify-content: space-around; margin-bottom: 20px; }
+    .tab-button { flex: 1; padding: 12px; text-align: center; background-color: #222; color: #ffd700; border: 1px solid #444; cursor: pointer; font-weight: bold; border-radius: 8px 8px 0 0; transition: background 0.3s; }
     .tab-button.active { background-color: #ffd700; color: #000; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     .output-block { margin-top: 20px; }
     .time-invalid { border: 2px solid red !important; }
-    textarea, input {
-      width: 100%; margin-top: 6px; margin-bottom: 14px; padding: 8px;
-      border-radius: 6px; border: none; font-size: 1rem;
-    }
-    button {
-      padding: 10px 20px; background: #ffd700; color: #000; font-weight: bold;
-      border: none; border-radius: 6px; cursor: pointer;
-    }
-    #paymentOverlay {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.85); z-index: 999; display: none;
-      align-items: center; justify-content: center;
-    }
-    .payment-box {
-      background: #111; padding: 30px; border-radius: 16px; text-align: center;
-      color: white; width: 90%; max-width: 360px; position: relative;
-    }
-    .payment-box img.logo { width: 60px; margin-bottom: 12px; }
-    .qr { width: 200px; height: 200px; background: white; margin: auto; display: flex; align-items: center; justify-content: center; }
-    .wallet, .chain { margin: 10px 0; font-size: 0.95rem; word-break: break-word; }
-    .spinner {
-      margin: 16px auto; width: 30px; height: 30px;
-      border: 4px solid #ffd700; border-top: 4px solid transparent;
-      border-radius: 50%; animation: spin 1s linear infinite;
-    }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .close-btn { position: absolute; top: 8px; right: 12px; background: transparent; color: #fff; font-size: 20px; border: none; cursor: pointer; }
-    .qr img { width: 100%; height: 100%; }
-    .connect-section { text-align: center; margin-bottom: 20px; }
-    #connectButton { background: #4CAF50; color: white; }
-    #walletStatus { color: #ffcc00; font-size: 14px; }
-    #connectError { color: #ff4444; font-size: 14px; margin-top: 5px; display: none; }
-    /* Đảm bảo modal hiển thị trên cùng */
-    .web3modal-modal-lightbox {
-      z-index: 10000 !important;
-      background: rgba(0, 0, 0, 0.9) !important;
-    }
-    .web3modal-modal-container {
-      z-index: 10001 !important;
-    }
+    textarea, input { width: 100%; margin-top: 6px; margin-bottom: 14px; padding: 8px; border-radius: 6px; border: none; font-size: 1rem; }
+    button { padding: 10px 20px; background: #ffd700; color: #000; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; }
+    .helper-inline { font-size: 12px; color: #bbb; margin-top: -6px; margin-bottom: 10px; }
   </style>
-  <!-- CDN for Web3Modal v1 and WalletConnect v2 -->
-  <script src="https://unpkg.com/web3modal@1.9.12/dist/index.js"></script>
-  <script src="https://unpkg.com/@walletconnect/ethereum-provider@2.8.0/dist/umd/index.min.js"></script>
-  <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-  <script src="https://unpkg.com/@lit-protocol/lit-node-client@4.1.0/lit.min.js"></script>
 </head>
 <body>
-  <h1 onclick="location.reload()" style="cursor: pointer;">🔐 Timelock Crypto</h1>
+  <h1 onclick="location.reload()" style="cursor: pointer;">🔐 Fintech Timelock – Quantum‑Safe</h1>
 
   <div class="tab-buttons">
-    <div class="tab-button active" onclick="switchTab('encryptTab')">🛡️ Mã hóa</div>
-    <div class="tab-button" onclick="switchTab('infoTab')">📢 Thông báo</div>
+    <div class="tab-button active" onclick="switchTab('encryptTab')">🧩 Seed / 12 số</div>
+    <div class="tab-button" onclick="switchTab('inheritTab')">👥 Thừa kế</div>
     <div class="tab-button" onclick="switchTab('decryptTab')">🔓 Giải mã</div>
   </div>
 
-  <!-- Mã hóa -->
+  <!-- Tab 1: Seed / 12 số Random -->
   <section id="encryptTab" class="tab-content active">
-    <div class="connect-section">
-      <button id="connectButton" onclick="connectWallet()">Connect Wallet</button>
-      <p id="walletStatus">Trạng thái: Chưa kết nối</p>
-      <p id="connectError"></p>
+    <div class="secret-mode">
+      <label>Chọn chế độ bí mật:</label>
+      <div class="radio-row">
+        <label><input type="radio" name="secretMode" value="seed" checked> Seed phrase (12/24 từ)</label>
+        <label><input type="radio" name="secretMode" value="nums"> 12 số random</label>
+      </div>
+      <div id="seedBox">
+        <label>Seed phrase</label>
+        <textarea id="seedInput" placeholder="nhập 12 hoặc 24 từ, chỉ chữ không dấu"></textarea>
+        <div class="helper-inline">Tự động chặn ký tự có dấu và ký tự lạ</div>
+      </div>
+      <div id="numsBox" style="display:none;">
+        <button id="genNumsBtn">🎰 Tạo 12 số</button>
+        <div id="numsDisplay" class="slot-line"></div>
+      </div>
     </div>
-    <label>📝 Ghi chú:</label>
+
+    <label>📝 Ghi chú bảo mật (được mã hoá)</label>
     <textarea id="noteInput" placeholder="Nhập ghi chú..."></textarea>
-    <label>₿ Mã Crypto/Forex:</label>
-    <input id="coinInput" placeholder="Ví dụ: BTC/USDT" oninput="suggestCoins(); fetchPrice();" autocomplete="off"/>
-    <div id="coinSuggestions" class="suggestions"></div>
-    <div id="livePrice" class="price-display"></div>
-    <label>💰 Giá mở khoá:</label>
-    <input id="targetPrice" oninput="validatePriceInput(this)" placeholder="Giá cao hơn"/>
-    <input id="minPrice" oninput="validatePriceInput(this)" placeholder="Giá thấp hơn hiện tại (tùy chọn)"/>
-    <label>⏰ Thời gian mở khóa:</label>
+
+    <label>⏰ Thời gian mở khoá</label>
     <input type="datetime-local" id="unlockTime"/>
-    <button onclick="validateBeforeEncrypt()">🔐 Mã hóa</button>
+    <div class="helper-inline">Chỉ chọn tương lai. Hiển thị giờ địa phương, lưu UTC.</div>
+
+    <label>💰 Điều kiện giá (tùy chọn)</label>
+    <input id="priceAbove" placeholder="Cao hơn (ví dụ 65000)"/>
+    <input id="priceBelow" placeholder="Thấp hơn (ví dụ 50000)"/>
+    <div class="helper-inline">Nguồn giá: Pyth TWAP + confidence (mô phỏng). Logic OR với thời gian.</div>
+
+    <label>🪙 Tài sản</label>
+    <input id="assetInput" placeholder="BTC/USD hoặc ETH/USD"/>
+
+    <button id="encryptBtn">🔐 Mã hoá</button>
+
     <div class="output-block">
-      <label>⛓️ Kết quả mã hóa:</label>
-      <textarea id="encryptedOutput" placeholder="🔒 Mã đã mã hóa..." readonly rows="6"></textarea>
-      <button onclick="copyEncrypted()">📋 Copy</button>
+      <label>⛓️ Kết quả mã hoá</label>
+      <textarea id="encryptedOutput" placeholder="🔒 Kết quả..." readonly rows="6"></textarea>
+      <button id="copyEncBtn">📋 Copy</button>
+      <div id="onchainLine" class="onchain-line" style="display:none;"></div>
     </div>
   </section>
 
-  <!-- Thông báo -->
-  <section id="infoTab" class="tab-content">
-    <p>📌 Website TimeLock Ghi Chú giúp bạn bảo vệ thông tin bằng thời gian và giá coin.</p>
-    <p>💵 Phí: 0.5 USDT/ngày</p>
-    <p>📌 Dùng mã hóa AES-CBC + SHA256, chỉ lưu trữ client-side.</p>
-    <p>🚫 Không mã hóa passphrase/seed/private key.</p>
+  <!-- Tab 2: Thừa kế -->
+  <section id="inheritTab" class="tab-content">
+    <label>📥 Dán dòng mã hoá</label>
+    <textarea id="inheritCipher" placeholder="Dán mã đã mã hoá..." rows="4"></textarea>
+
+    <div id="inheritForm" style="display:none;">
+      <label>Email người nhận</label>
+      <input type="email" id="heirEmail" placeholder="example@gmail.com"/>
+      <label>Lời nhắn (chỉ đọc khi unlock)</label>
+      <textarea id="heirMessage" rows="3" placeholder="Lời nhắn tuỳ chọn..."></textarea>
+      <label>Câu hỏi bảo mật</label>
+      <input id="secQuestion" placeholder="Ví dụ: Ngày sinh?"/>
+      <label>Đáp án (băm Argon2id)</label>
+      <input id="secAnswer" placeholder="Nhập đáp án"/>
+
+      <label>Điều kiện OR (tùy chọn)</label>
+      <input type="datetime-local" id="inheritTime"/>
+      <input id="inheritAbove" placeholder="Giá cao hơn"/>
+      <input id="inheritBelow" placeholder="Giá thấp hơn"/>
+      <input id="inheritAsset" placeholder="BTC/USD hoặc ETH/USD"/>
+
+      <button id="inheritLockBtn">🔒 Lưu & khoá thừa kế</button>
+      <button id="inheritCancelBtn" class="ghost">🕒 Hủy thừa kế (timelock 24h)</button>
+      <button id="inheritStatusBtn" class="ghost">👁️ Xem tình trạng</button>
+      <div id="inheritStatus"></div>
+    </div>
   </section>
 
-  <!-- Giải mã -->
+  <!-- Tab 3: Giải mã -->
   <section id="decryptTab" class="tab-content">
-    <div class="connect-section">
-      <button id="connectButtonDecrypt" onclick="connectWallet()">Connect Wallet</button>
-      <p id="walletStatusDecrypt">Trạng thái: Chưa kết nối</p>
-      <p id="connectErrorDecrypt"></p>
+    <label>📥 Nhập mã đã mã hóa</label>
+    <textarea id="decryptionInput" placeholder="Dán mã..." rows="7"></textarea>
+
+    <div class="secret-mode">
+      <div class="radio-row">
+        <label><input type="radio" name="secretModeDec" value="seed" checked> Seed phrase</label>
+        <label><input type="radio" name="secretModeDec" value="nums"> 12 số random</label>
+      </div>
+      <div id="seedBoxDec">
+        <label>Seed phrase</label>
+        <textarea id="seedInputDec" placeholder="nhập 12 hoặc 24 từ, chỉ chữ không dấu"></textarea>
+      </div>
+      <div id="numsBoxDec" style="display:none;">
+        <label>12 số</label>
+        <input id="numsInputDec" placeholder="ví dụ: 12-34-56-..."/>
+      </div>
     </div>
-    <label>📥 Nhập mã đã mã hóa:</label>
-    <textarea id="decryptionInput" placeholder="📥 Dán mã đã mã hóa..." rows="7"></textarea>
-    <button id="decryptButton" onclick="decrypt()">🔓 Giải mã</button>
+
+    <button id="decryptButton">🔓 Giải mã</button>
     <div id="decryptedResult" class="output-block"></div>
-    <button onclick="copyDecrypted()">📋 Copy</button>
+
+    <div id="conditionsPanel" class="conditions"></div>
+    <button id="proofBtn" class="ghost" style="display:none;">🔏 Xem bằng chứng</button>
+
     <div id="loadingIndicator" style="display: none; text-align: center; padding: 10px;">
       <div class="spinner"></div>
-      <p>Đang giải mã... Vui lòng chờ giây lát ⏳</p>
+      <p>Đang kiểm tra điều kiện/giải mã ⏳</p>
     </div>
   </section>
 
-  <div id="paymentOverlay">
-    <div class="payment-box">
-      <button class="close-btn" onclick="closePaymentPopup()">X</button>
-      <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.png" class="logo" />
-      <div class="qr" id="qrCodeContainer"><img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=0xcE6320183252CD965a70D4a9B6F30D2877a2188E" /></div>
-      <div class="wallet" onclick="copyWallet()"><strong>0xcE6320183252CD965a70D4a9B6F30D2877a2188E</strong></div>
-      <button class="copy-btn" onclick="copyWallet()">📋</button>
-      <div class="payment-amount">Amount: <strong id="paymentAmount">0.5 USDT</strong></div>
-      <div>Network: BNB Smartchain</div>
-      <div class="countdown" id="countdown">Còn 15 phút 0 giây</div>
-      <div class="spinner"></div>
-      <div>⏳ Đang chờ thanh toán...</div>
-      <div id="paymentStatus" class="payment-status"></div>
+  <div id="toast" class="toast" style="display:none;"></div>
+
+  <div id="proofModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <span id="proofClose" class="close">×</span>
+      <h3>Bằng chứng</h3>
+      <pre id="proofContent"></pre>
     </div>
   </div>
 
-  <script>
-    let web3Modal = null;
-    let walletProvider = null;
-
-    function switchTab(tabId) {
-      document.querySelectorAll('.tab-content').forEach(s => s.classList.remove('active'));
-      document.querySelectorAll('.tab-button').forEach(t => t.classList.remove('active'));
-      document.getElementById(tabId).classList.add('active');
-      document.querySelector(`.tab-button[onclick="switchTab('${tabId}')"]`).classList.add('active');
-    }
-
-    function closePaymentPopup() {
-      document.getElementById("paymentOverlay").style.display = "none";
-    }
-
-    function copyWallet() {
-      navigator.clipboard.writeText("0xcE6320183252CD965a70D4a9B6F30D2877a2188E").then(() => alert("✅ Đã sao chép địa chỉ ví!"));
-    }
-
-    async function connectWallet() {
-      try {
-        if (!web3Modal) {
-          web3Modal = new Web3Modal.default({
-            network: 'binanceSmartChain', // Sử dụng BNB chain
-            cacheProvider: true,
-            providerOptions: {
-              walletconnect: {
-                package: window.WalletConnectProvider, // Sử dụng WalletConnect v2
-                options: {
-                  projectId: "adab2be34c8c272ee1a99db63aad6119", // Project ID từ WalletConnect
-                  chains: [56], // BNB Mainnet chain ID
-                  showQrModal: true,
-                  rpc: {
-                    56: "https://bsc-dataseed.binance.org/" // RPC cho BNB chain
-                  }
-                }
-              },
-              'custom-metamask': {
-                display: {
-                  logo: 'https://metamask.io/images/mm-logo.png',
-                  name: 'MetaMask',
-                  description: 'Connect with MetaMask'
-                },
-                package: null,
-                connector: async () => {
-                  const provider = new ethers.providers.Web3Provider(window.ethereum);
-                  await provider.send("eth_requestAccounts", []);
-                  return provider;
-                }
-              },
-              'custom-trust': {
-                display: {
-                  logo: 'https://trustwallet.com/assets/images/icons/icon-256x256.png',
-                  name: 'Trust Wallet',
-                  description: 'Connect with Trust Wallet'
-                },
-                package: null,
-                connector: async () => {
-                  const provider = new ethers.providers.Web3Provider(window.ethereum);
-                  await provider.send("eth_requestAccounts", []);
-                  return provider;
-                }
-              },
-              'custom-coinbase': {
-                display: {
-                  logo: 'https://coinbase.com/assets/coinbase-logo.png',
-                  name: 'Coinbase Wallet',
-                  description: 'Connect with Coinbase Wallet'
-                },
-                package: null,
-                connector: async () => {
-                  const provider = new ethers.providers.Web3Provider(window.ethereum);
-                  await provider.send("eth_requestAccounts", []);
-                  return provider;
-                }
-              }
-            }
-          });
-        }
-
-        const provider = await web3Modal.connect();
-        walletProvider = new ethers.providers.Web3Provider(provider);
-        const accounts = await walletProvider.listAccounts();
-        document.getElementById("walletStatus").textContent = `Trạng thái: Đã kết nối (${accounts[0].substring(0, 6)}...${accounts[0].substring(accounts[0].length - 4)})`;
-        document.getElementById("walletStatusDecrypt").textContent = `Trạng thái: Đã kết nối (${accounts[0].substring(0, 6)}...${accounts[0].substring(accounts[0].length - 4)})`;
-        document.getElementById("connectButton").disabled = true;
-        document.getElementById("connectButtonDecrypt").disabled = true;
-      } catch (error) {
-        console.error("Lỗi kết nối ví:", error);
-        document.getElementById("connectError").style.display = "block";
-        document.getElementById("connectError").textContent = `Lỗi: ${error.message}. Đảm bảo ví được cài đặt và mạng BNB được chọn.`;
-        document.getElementById("connectErrorDecrypt").style.display = "block";
-        document.getElementById("connectErrorDecrypt").textContent = `Lỗi: ${error.message}. Đảm bảo ví được cài đặt và mạng BNB được chọn.`;
-      }
-    }
-
-    function validateBeforeEncrypt() {
-      const note = document.getElementById("noteInput").value.trim();
-      const coin = document.getElementById("coinInput").value.trim().toUpperCase();
-      const price = document.getElementById("targetPrice").value.trim();
-      const unlockTime = document.getElementById("unlockTime").value;
-      if (!note || !coin || !price || !unlockTime) {
-        alert("Vui lòng nhập đầy đủ thông tin!");
-        return;
-      }
-      if (!allCoins.includes(coin)) {
-        alert("Mã coin/forex không hợp lệ!");
-        return;
-      }
-      const now = new Date();
-      if (new Date(unlockTime) <= now) {
-        alert("Thời gian mở khóa phải lớn hơn hiện tại!");
-        return;
-      }
-      if (!walletProvider) {
-        alert("Vui lòng kết nối ví trước khi mã hóa!");
-        return;
-      }
-      encrypt();
-    }
-
-    function copyEncrypted() {
-      const text = document.getElementById("encryptedOutput").value;
-      navigator.clipboard.writeText(text).then(() => alert("✅ Đã sao chép mã hóa!"));
-    }
-
-    function copyDecrypted() {
-      const noteContent = document.querySelector('.note-content');
-      if (noteContent) {
-        navigator.clipboard.writeText(noteContent.innerText).then(() => alert("✅ Đã sao chép!"));
-      }
-    }
-  </script>
-
-  <script src="script.js"></script>
+  <script src="crypto.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
