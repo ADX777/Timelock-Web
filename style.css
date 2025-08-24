@@ -106,7 +106,7 @@
 /* Base Styles */
 body {
   font-family: var(--font-family);
-  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
+  background: radial-gradient(1200px 800px at 20% 0%, #000 0%, #111 50%, #151515 100%);
   color: var(--text-primary);
   line-height: 1.6;
   min-height: 100vh;
@@ -284,12 +284,12 @@ body {
 
 /* Content Cards */
 .content-card {
-  background: rgba(255, 255, 255, 0.95);
+  background: linear-gradient(180deg, rgba(26,26,26,0.95), rgba(17,17,17,0.95));
   backdrop-filter: blur(20px);
   border-radius: var(--radius-2xl);
   padding: var(--spacing-8);
-  box-shadow: var(--shadow-xl);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  border: 1px solid rgba(255, 215, 0, 0.15);
 }
 
 .card-header {
@@ -300,7 +300,7 @@ body {
 .card-header h2 {
   font-size: var(--font-size-3xl);
   font-weight: 700;
-  color: var(--gray-900);
+  color: #f6e27a;
   margin-bottom: var(--spacing-2);
   display: flex;
   align-items: center;
@@ -314,7 +314,7 @@ body {
 
 .card-subtitle {
   font-size: var(--font-size-lg);
-  color: var(--gray-600);
+  color: #b3a369;
   font-weight: 400;
 }
 
@@ -382,19 +382,19 @@ body {
 .input-field {
   width: 100%;
   padding: var(--spacing-4);
-  border: 2px solid var(--gray-200);
+  border: 2px solid #2a2a2a;
   border-radius: var(--radius-lg);
   font-size: var(--font-size-base);
   transition: all var(--transition-fast);
-  background: var(--white);
-  color: var(--gray-900);
+  background: #0f0f0f;
+  color: #f1f1f1;
   font-family: inherit;
 }
 
 .input-field:focus {
   outline: none;
-  border-color: var(--primary-blue);
-  box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.1);
+  border-color: #d4af37;
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.15);
 }
 
 .input-field::placeholder {
@@ -516,6 +516,34 @@ body {
   grid-template-columns: 1fr 1fr;
   gap: var(--spacing-4);
 }
+/* Suggestions Dropdown */
+.asset-input-wrapper { position: relative; }
+.suggestions-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 50;
+}
+.suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3) var(--spacing-4);
+  cursor: pointer;
+}
+.suggestion-item:hover { background: var(--gray-100); }
+.suggestion-logo { width: 20px; height: 20px; border-radius: 50%; }
+.suggestion-symbol { font-weight: 600; color: var(--gray-800); }
+.suggestion-name { color: var(--gray-500); font-size: var(--font-size-sm); }
+
+.price-hint { margin-top: var(--spacing-2); font-size: var(--font-size-sm); }
 
 .price-input-group label {
   display: block;
@@ -527,19 +555,19 @@ body {
 
 /* Buttons */
 .primary-btn {
-  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%);
+  background: linear-gradient(135deg, #d4af37, #b8860b);
   border: none;
-  color: var(--white);
+  color: #0b0b0b;
   padding: var(--spacing-4) var(--spacing-8);
   border-radius: var(--radius-lg);
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--spacing-2);
   transition: all var(--transition-fast);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 8px 20px rgba(212, 175, 55, 0.25);
   font-size: var(--font-size-base);
   width: 100%;
 }
@@ -603,10 +631,10 @@ body {
 /* Result Sections */
 .result-section {
   margin-top: var(--spacing-8);
-  background: var(--gray-50);
+  background: #0f0f0f;
   border-radius: var(--radius-xl);
   padding: var(--spacing-6);
-  border: 2px solid var(--success);
+  border: 2px solid #2e7d32;
 }
 
 .result-header {
@@ -776,6 +804,9 @@ body {
   gap: var(--spacing-4);
   margin-top: var(--spacing-6);
 }
+
+.otp-inline { position: absolute; right: var(--spacing-2); top: 50%; transform: translateY(-50%); }
+.asset-input-wrapper .info-btn { padding: var(--spacing-2) var(--spacing-3); font-size: var(--font-size-sm); }
 
 .inheritance-actions-decrypt {
   display: flex;

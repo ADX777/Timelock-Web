@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>🔐 Quantum-Resistant Crypto Vault</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; img-src 'self' https: data:; style-src 'self' https: 'unsafe-inline'; script-src 'self' https:; connect-src 'self' https:;"> 
   <link rel="stylesheet" href="style.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -180,6 +181,22 @@
                 <i class="fas fa-chart-line"></i>
                 Điều kiện giá (tùy chọn)
               </label>
+              <div class="input-section" style="margin-top: var(--spacing-3);">
+                <label class="input-label">
+                  <i class="fas fa-coins"></i>
+                  Cặp tài sản (Binance/Forex)
+                </label>
+                <div class="asset-input-wrapper">
+                  <input 
+                    type="text" 
+                    id="crypto-pair-input" 
+                    placeholder="Ví dụ: BTCUSDT, ETHUSDT, XAUUSD..."
+                    class="input-field"
+                    autocomplete="off"
+                  >
+                  <div id="crypto-suggestions" class="suggestions-dropdown" style="display:none;"></div>
+                </div>
+              </div>
               <div class="price-inputs">
                 <div class="price-input-group">
                   <label>Cao hơn</label>
@@ -202,6 +219,7 @@
                   >
                 </div>
               </div>
+              <div id="price-hint" class="price-hint" style="display:none;"></div>
               <div class="condition-info">
                 <i class="fas fa-info-circle"></i>
                 Sử dụng Pyth TWAP + confidence
@@ -278,11 +296,23 @@
                 <i class="fas fa-envelope"></i>
                 Email người nhận
               </label>
+              <div class="asset-input-wrapper">
+                <input 
+                  type="email" 
+                  id="recipient-email" 
+                  placeholder="email@example.com"
+                  class="input-field"
+                >
+                <div class="otp-inline">
+                  <button class="info-btn" type="button" onclick="sendInlineOtp()">Gửi OTP</button>
+                </div>
+              </div>
               <input 
-                type="email" 
-                id="recipient-email" 
-                placeholder="email@example.com"
+                type="text" 
+                id="recipient-otp" 
+                placeholder="Nhập OTP"
                 class="input-field"
+                style="margin-top: var(--spacing-2)"
               >
             </div>
 
@@ -560,5 +590,10 @@
   </div>
 
   <script src="script.js"></script>
+  <script>
+    function sendInlineOtp(){
+      if(window.quantumVault){ window.quantumVault.sendInlineOtp(); }
+    }
+  </script>
 </body>
 </html>
