@@ -3,283 +3,561 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>🔐 Timelock Crypto</title>
+  <title>🔐 Quantum-Resistant Crypto Vault</title>
   <link rel="stylesheet" href="style.css"/>
-  <style>
-    body {
-      background: #000; color: #ffd700; font-family: sans-serif;
-      margin: 0; padding: 20px;
-    }
-    .tab-buttons {
-      display: flex; justify-content: space-around; margin-bottom: 20px;
-    }
-    .tab-button {
-      flex: 1; padding: 12px; text-align: center; background-color: #222;
-      color: #ffd700; border: 1px solid #444; cursor: pointer; font-weight: bold;
-      border-radius: 8px 8px 0 0; transition: background 0.3s;
-    }
-    .tab-button.active { background-color: #ffd700; color: #000; }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-    .output-block { margin-top: 20px; }
-    .time-invalid { border: 2px solid red !important; }
-    textarea, input {
-      width: 100%; margin-top: 6px; margin-bottom: 14px; padding: 8px;
-      border-radius: 6px; border: none; font-size: 1rem;
-    }
-    button {
-      padding: 10px 20px; background: #ffd700; color: #000; font-weight: bold;
-      border: none; border-radius: 6px; cursor: pointer;
-    }
-    #paymentOverlay {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.85); z-index: 999; display: none;
-      align-items: center; justify-content: center;
-    }
-    .payment-box {
-      background: #111; padding: 30px; border-radius: 16px; text-align: center;
-      color: white; width: 90%; max-width: 360px; position: relative;
-    }
-    .payment-box img.logo { width: 60px; margin-bottom: 12px; }
-    .qr { width: 200px; height: 200px; background: white; margin: auto; display: flex; align-items: center; justify-content: center; }
-    .wallet, .chain { margin: 10px 0; font-size: 0.95rem; word-break: break-word; }
-    .spinner {
-      margin: 16px auto; width: 30px; height: 30px;
-      border: 4px solid #ffd700; border-top: 4px solid transparent;
-      border-radius: 50%; animation: spin 1s linear infinite;
-    }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .close-btn { position: absolute; top: 8px; right: 12px; background: transparent; color: #fff; font-size: 20px; border: none; cursor: pointer; }
-    .qr img { width: 100%; height: 100%; }
-    .connect-section { text-align: center; margin-bottom: 20px; }
-    #connectButton { background: #4CAF50; color: white; }
-    #walletStatus { color: #ffcc00; font-size: 14px; }
-    #connectError { color: #ff4444; font-size: 14px; margin-top: 5px; display: none; }
-    /* Đảm bảo modal hiển thị trên cùng */
-    .web3modal-modal-lightbox {
-      z-index: 10000 !important;
-      background: rgba(0, 0, 0, 0.9) !important;
-    }
-    .web3modal-modal-container {
-      z-index: 10001 !important;
-    }
-  </style>
-  <!-- CDN for Web3Modal v1 and WalletConnect v2 -->
-  <script src="https://unpkg.com/web3modal@1.9.12/dist/index.js"></script>
-  <script src="https://unpkg.com/@walletconnect/ethereum-provider@2.8.0/dist/umd/index.min.js"></script>
-  <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-  <script src="https://unpkg.com/@lit-protocol/lit-node-client@4.1.0/lit.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Crypto Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <script src="https://unpkg.com/@noble/curves@1.1.0/lib/esm/ed25519.js"></script>
+  <script src="https://unpkg.com/@noble/hashes@1.3.0/lib/esm/sha256.js"></script>
+  <script src="https://unpkg.com/kyber@0.0.1/dist/kyber.min.js"></script>
+  <script src="https://unpkg.com/dilithium@0.0.1/dist/dilithium.min.js"></script>
+  
+  <!-- Web3 Libraries -->
+  <script src="https://unpkg.com/web3@1.9.0/dist/web3.min.js"></script>
+  <script src="https://unpkg.com/@near-wallet-selector/core@7.1.0/lib/index.umd.js"></script>
+  
+  <!-- Pyth Network -->
+  <script src="https://hermes.pyth.network/api/latest/price_feeds.js"></script>
+  
+  <!-- Drand Network -->
+  <script src="https://drand.cloudflare.com/api/public/latest"></script>
 </head>
 <body>
-  <h1 onclick="location.reload()" style="cursor: pointer;">🔐 Timelock Crypto</h1>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-content">
+        <div class="logo-section">
+          <i class="fas fa-shield-alt logo-icon"></i>
+          <h1 class="app-title">Quantum Vault</h1>
+          <span class="app-subtitle">Fintech-Grade Encryption</span>
+        </div>
+        <div class="header-actions">
+          <button class="theme-toggle" onclick="toggleTheme()">
+            <i class="fas fa-moon"></i>
+          </button>
+          <button class="connect-wallet-btn" onclick="connectWallet()">
+            <i class="fas fa-wallet"></i>
+            <span id="wallet-status">Connect Wallet</span>
+          </button>
+        </div>
+      </div>
+    </header>
 
-  <div class="tab-buttons">
-    <div class="tab-button active" onclick="switchTab('encryptTab')">🛡️ Mã hóa</div>
-    <div class="tab-button" onclick="switchTab('infoTab')">📢 Thông báo</div>
-    <div class="tab-button" onclick="switchTab('decryptTab')">🔓 Giải mã</div>
+    <!-- Navigation Tabs -->
+    <nav class="tab-navigation">
+      <div class="tab-container">
+        <button class="tab-button active" data-tab="encrypt">
+          <i class="fas fa-lock"></i>
+          <span>Mã hóa</span>
+        </button>
+        <button class="tab-button" data-tab="inheritance">
+          <i class="fas fa-users"></i>
+          <span>Thừa kế</span>
+        </button>
+        <button class="tab-button" data-tab="decrypt">
+          <i class="fas fa-unlock"></i>
+          <span>Giải mã</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Encryption Tab -->
+      <section id="encrypt-tab" class="tab-content active">
+        <div class="content-card">
+          <div class="card-header">
+            <h2><i class="fas fa-lock"></i> Mã hóa dữ liệu</h2>
+            <p class="card-subtitle">Bảo vệ thông tin với mã hóa chống lượng tử</p>
+          </div>
+
+          <!-- Input Method Selection -->
+          <div class="input-method-section">
+            <div class="method-toggle">
+              <label class="toggle-option">
+                <input type="radio" name="inputMethod" value="seedphrase" checked>
+                <span class="toggle-label">
+                  <i class="fas fa-key"></i>
+                  Seed Phrase
+                </span>
+              </label>
+              <label class="toggle-option">
+                <input type="radio" name="inputMethod" value="random">
+                <span class="toggle-label">
+                  <i class="fas fa-dice"></i>
+                  12 Số Random
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Seed Phrase Input -->
+          <div id="seedphrase-input" class="input-section">
+            <label class="input-label">
+              <i class="fas fa-key"></i>
+              Seed Phrase (12 hoặc 24 từ)
+            </label>
+            <textarea 
+              id="seedphrase-textarea" 
+              placeholder="Nhập 12 hoặc 24 từ, chỉ chữ không dấu, cách nhau bằng khoảng trắng..."
+              class="input-field"
+              rows="3"
+            ></textarea>
+          </div>
+
+          <!-- Random Numbers Input -->
+          <div id="random-input" class="input-section" style="display: none;">
+            <label class="input-label">
+              <i class="fas fa-dice"></i>
+              12 Số Random
+            </label>
+            <div class="random-numbers-display" id="random-numbers">
+              <div class="number-slot">?</div>
+              <div class="number-slot">?</div>
+              <div class="number-slot">?</div>
+              <div class="number-slot">?</div>
+              <div class="number-slot">?</div>
+              <div class="number-slot">?</div>
+              <div class="number-slot">?</div>
+              <div class="number-slot">?</div>
+              <div class="number-slot">?</div>
+              <div class="number-slot">?</div>
+              <div class="number-slot">?</div>
+              <div class="number-slot">?</div>
+            </div>
+            <button class="generate-btn" onclick="generateRandomNumbers()">
+              <i class="fas fa-sync-alt"></i>
+              Tạo 12 số
+            </button>
+          </div>
+
+          <!-- Security Note -->
+          <div class="input-section">
+            <label class="input-label">
+              <i class="fas fa-sticky-note"></i>
+              Ghi chú bảo mật (tùy chọn)
+            </label>
+            <textarea 
+              id="security-note" 
+              placeholder="Ghi chú sẽ được hiển thị khi unlock..."
+              class="input-field"
+              rows="2"
+            ></textarea>
+          </div>
+
+          <!-- Unlock Conditions -->
+          <div class="unlock-conditions">
+            <h3 class="section-title">
+              <i class="fas fa-clock"></i>
+              Điều kiện mở khóa
+            </h3>
+            
+            <!-- Time Condition -->
+            <div class="condition-group">
+              <label class="condition-label">
+                <i class="fas fa-calendar-alt"></i>
+                Thời gian (bắt buộc)
+              </label>
+              <input 
+                type="datetime-local" 
+                id="unlock-time" 
+                class="input-field"
+                required
+              >
+              <div class="condition-info">
+                <i class="fas fa-info-circle"></i>
+                Sử dụng nguồn thời gian phi tập trung (drand)
+              </div>
+            </div>
+
+            <!-- Price Conditions -->
+            <div class="condition-group">
+              <label class="condition-label">
+                <i class="fas fa-chart-line"></i>
+                Điều kiện giá (tùy chọn)
+              </label>
+              <div class="price-inputs">
+                <div class="price-input-group">
+                  <label>Cao hơn</label>
+                  <input 
+                    type="number" 
+                    id="price-higher" 
+                    placeholder="Giá cao hơn"
+                    class="input-field"
+                    step="0.000001"
+                  >
+                </div>
+                <div class="price-input-group">
+                  <label>Thấp hơn</label>
+                  <input 
+                    type="number" 
+                    id="price-lower" 
+                    placeholder="Giá thấp hơn"
+                    class="input-field"
+                    step="0.000001"
+                  >
+                </div>
+              </div>
+              <div class="condition-info">
+                <i class="fas fa-info-circle"></i>
+                Sử dụng Pyth TWAP + confidence
+              </div>
+            </div>
+          </div>
+
+          <!-- Encrypt Button -->
+          <button class="primary-btn encrypt-btn" onclick="encryptData()">
+            <i class="fas fa-lock"></i>
+            Mã hóa dữ liệu
+          </button>
+
+          <!-- Encrypted Result -->
+          <div id="encrypted-result" class="result-section" style="display: none;">
+            <div class="result-header">
+              <h3><i class="fas fa-check-circle"></i> Mã hóa thành công</h3>
+              <button class="copy-btn" onclick="copyEncryptedResult()">
+                <i class="fas fa-copy"></i>
+                Copy
+              </button>
+            </div>
+            <div class="encrypted-content">
+              <textarea 
+                id="encrypted-output" 
+                class="frozen-textarea" 
+                readonly
+                rows="6"
+              ></textarea>
+            </div>
+            <div class="blockchain-info">
+              <i class="fas fa-link"></i>
+              <span>Đã ghi thông tin lên Near Protocol</span>
+              <a id="explorer-link" href="#" target="_blank" class="hash-link">
+                <span id="transaction-hash"></span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Inheritance Tab -->
+      <section id="inheritance-tab" class="tab-content">
+        <div class="content-card">
+          <div class="card-header">
+            <h2><i class="fas fa-users"></i> Thiết lập thừa kế</h2>
+            <p class="card-subtitle">Chia sẻ thông tin an toàn với người thân</p>
+          </div>
+
+          <!-- Part 1: Encrypted Data Input -->
+          <div class="input-section">
+            <label class="input-label">
+              <i class="fas fa-paste"></i>
+              Dán dòng mã đã mã hóa
+            </label>
+            <textarea 
+              id="inheritance-encrypted-input" 
+              placeholder="Dán mã đã mã hóa từ tab Mã hóa..."
+              class="input-field"
+              rows="4"
+            ></textarea>
+          </div>
+
+          <!-- Part 2: Inheritance Settings (hidden until valid input) -->
+          <div id="inheritance-settings" class="inheritance-settings" style="display: none;">
+            <h3 class="section-title">
+              <i class="fas fa-cog"></i>
+              Cài đặt thừa kế
+            </h3>
+
+            <!-- Recipient Email -->
+            <div class="input-section">
+              <label class="input-label">
+                <i class="fas fa-envelope"></i>
+                Email người nhận
+              </label>
+              <input 
+                type="email" 
+                id="recipient-email" 
+                placeholder="email@example.com"
+                class="input-field"
+              >
+            </div>
+
+            <!-- Security Message -->
+            <div class="input-section">
+              <label class="input-label">
+                <i class="fas fa-comment"></i>
+                Lời nhắn (tùy chọn)
+              </label>
+              <textarea 
+                id="security-message" 
+                placeholder="Lời nhắn sẽ được gửi cùng email..."
+                class="input-field"
+                rows="3"
+              ></textarea>
+            </div>
+
+            <!-- Security Question -->
+            <div class="input-section">
+              <label class="input-label">
+                <i class="fas fa-question-circle"></i>
+                Câu hỏi bảo mật
+              </label>
+              <input 
+                type="text" 
+                id="security-question" 
+                placeholder="Câu hỏi để xác thực người nhận..."
+                class="input-field"
+              >
+              <input 
+                type="text" 
+                id="security-answer" 
+                placeholder="Đáp án (sẽ được mã hóa)"
+                class="input-field"
+              >
+            </div>
+
+            <!-- Inheritance Conditions -->
+            <div class="inheritance-conditions">
+              <h4 class="subsection-title">
+                <i class="fas fa-clock"></i>
+                Điều kiện kích hoạt thừa kế
+              </h4>
+              
+              <div class="condition-group">
+                <label class="condition-label">
+                  <i class="fas fa-calendar-alt"></i>
+                  Thời gian
+                </label>
+                <input 
+                  type="datetime-local" 
+                  id="inheritance-time" 
+                  class="input-field"
+                >
+              </div>
+
+              <div class="condition-group">
+                <label class="condition-label">
+                  <i class="fas fa-chart-line"></i>
+                  Điều kiện giá
+                </label>
+                <div class="price-inputs">
+                  <div class="price-input-group">
+                    <label>Cao hơn</label>
+                    <input 
+                      type="number" 
+                      id="inheritance-price-higher" 
+                      placeholder="Giá cao hơn"
+                      class="input-field"
+                      step="0.000001"
+                    >
+                  </div>
+                  <div class="price-input-group">
+                    <label>Thấp hơn</label>
+                    <input 
+                      type="number" 
+                      id="inheritance-price-lower" 
+                      placeholder="Giá thấp hơn"
+                      class="input-field"
+                      step="0.000001"
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Inheritance Actions -->
+            <div class="inheritance-actions">
+              <button class="primary-btn" onclick="setupInheritance()">
+                <i class="fas fa-save"></i>
+                Lưu & Khóa thừa kế
+              </button>
+              <button class="secondary-btn" onclick="cancelInheritance()">
+                <i class="fas fa-times"></i>
+                Hủy thừa kế
+              </button>
+              <button class="info-btn" onclick="viewInheritanceStatus()">
+                <i class="fas fa-info-circle"></i>
+                Xem tình trạng
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Decryption Tab -->
+      <section id="decrypt-tab" class="tab-content">
+        <div class="content-card">
+          <div class="card-header">
+            <h2><i class="fas fa-unlock"></i> Giải mã dữ liệu</h2>
+            <p class="card-subtitle">Mở khóa thông tin khi đủ điều kiện</p>
+          </div>
+
+          <!-- Encrypted Data Input -->
+          <div class="input-section">
+            <label class="input-label">
+              <i class="fas fa-paste"></i>
+              Dán mã đã mã hóa
+            </label>
+            <textarea 
+              id="decrypt-input" 
+              placeholder="Dán mã đã mã hóa..."
+              class="input-field"
+              rows="6"
+            ></textarea>
+          </div>
+
+          <!-- Decrypt Button -->
+          <button class="primary-btn decrypt-btn" onclick="decryptData()">
+            <i class="fas fa-unlock"></i>
+            Giải mã
+          </button>
+
+          <!-- Loading Indicator -->
+          <div id="decrypt-loading" class="loading-section" style="display: none;">
+            <div class="spinner"></div>
+            <p>Đang kiểm tra điều kiện và giải mã...</p>
+          </div>
+
+          <!-- Decryption Result -->
+          <div id="decrypt-result" class="result-section" style="display: none;">
+            <div class="result-header">
+              <h3 id="decrypt-result-title">
+                <i class="fas fa-check-circle"></i>
+                Giải mã thành công
+              </h3>
+              <button class="copy-btn" onclick="copyDecryptedResult()">
+                <i class="fas fa-copy"></i>
+                Copy
+              </button>
+            </div>
+            <div class="decrypted-content">
+              <div id="decrypted-data" class="decrypted-data"></div>
+            </div>
+          </div>
+
+          <!-- Condition Status -->
+          <div id="condition-status" class="condition-status" style="display: none;">
+            <div class="status-header">
+              <h3><i class="fas fa-clock"></i> Trạng thái điều kiện</h3>
+            </div>
+            <div class="status-content">
+              <div id="time-status" class="status-item">
+                <i class="fas fa-calendar-alt"></i>
+                <span id="time-status-text"></span>
+              </div>
+              <div id="price-status" class="status-item">
+                <i class="fas fa-chart-line"></i>
+                <span id="price-status-text"></span>
+              </div>
+            </div>
+            <div class="countdown-section">
+              <div id="countdown-timer" class="countdown-timer"></div>
+            </div>
+            <button class="proof-btn" onclick="viewProof()">
+              <i class="fas fa-eye"></i>
+              Xem bằng chứng
+            </button>
+          </div>
+
+          <!-- Inheritance Actions (if applicable) -->
+          <div id="inheritance-actions-decrypt" class="inheritance-actions-decrypt" style="display: none;">
+            <button class="pulse-btn cancel-inheritance-btn" onclick="cancelInheritanceFromDecrypt()">
+              <i class="fas fa-times"></i>
+              Hủy thừa kế
+            </button>
+            <button class="pulse-btn view-status-btn" onclick="viewInheritanceStatusFromDecrypt()">
+              <i class="fas fa-info-circle"></i>
+              Xem tình trạng thừa kế
+            </button>
+          </div>
+
+          <!-- Technology Card -->
+          <div class="tech-card">
+            <h3 class="tech-title">
+              <i class="fas fa-microchip"></i>
+              Công nghệ bảo mật
+            </h3>
+            <div class="tech-features">
+              <div class="tech-feature">
+                <i class="fas fa-clock"></i>
+                <span>Thời gian phi tập trung: drand</span>
+              </div>
+              <div class="tech-feature">
+                <i class="fas fa-chart-line"></i>
+                <span>Giá phi tập trung: Pyth TWAP + confidence</span>
+              </div>
+              <div class="tech-feature">
+                <i class="fas fa-shield-alt"></i>
+                <span>Chống lượng tử: AES-256 + ECDH + Kyber</span>
+              </div>
+              <div class="tech-feature">
+                <i class="fas fa-signature"></i>
+                <span>Chữ ký: Dilithium/Falcon</span>
+              </div>
+              <div class="tech-feature">
+                <i class="fas fa-laptop"></i>
+                <span>Giải mã client-side</span>
+              </div>
+            </div>
+            <button class="proof-btn" onclick="viewProof()">
+              <i class="fas fa-eye"></i>
+              Xem bằng chứng
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
   </div>
 
-  <!-- Mã hóa -->
-  <section id="encryptTab" class="tab-content active">
-    <div class="connect-section">
-      <button id="connectButton" onclick="connectWallet()">Connect Wallet</button>
-      <p id="walletStatus">Trạng thái: Chưa kết nối</p>
-      <p id="connectError"></p>
-    </div>
-    <label>📝 Ghi chú:</label>
-    <textarea id="noteInput" placeholder="Nhập ghi chú..."></textarea>
-    <label>₿ Mã Crypto/Forex:</label>
-    <input id="coinInput" placeholder="Ví dụ: BTC/USDT" oninput="suggestCoins(); fetchPrice();" autocomplete="off"/>
-    <div id="coinSuggestions" class="suggestions"></div>
-    <div id="livePrice" class="price-display"></div>
-    <label>💰 Giá mở khoá:</label>
-    <input id="targetPrice" oninput="validatePriceInput(this)" placeholder="Giá cao hơn"/>
-    <input id="minPrice" oninput="validatePriceInput(this)" placeholder="Giá thấp hơn hiện tại (tùy chọn)"/>
-    <label>⏰ Thời gian mở khóa:</label>
-    <input type="datetime-local" id="unlockTime"/>
-    <button onclick="validateBeforeEncrypt()">🔐 Mã hóa</button>
-    <div class="output-block">
-      <label>⛓️ Kết quả mã hóa:</label>
-      <textarea id="encryptedOutput" placeholder="🔒 Mã đã mã hóa..." readonly rows="6"></textarea>
-      <button onclick="copyEncrypted()">📋 Copy</button>
-    </div>
-  </section>
+  <!-- Toast Notifications -->
+  <div id="toast-container" class="toast-container"></div>
 
-  <!-- Thông báo -->
-  <section id="infoTab" class="tab-content">
-    <p>📌 Website TimeLock Ghi Chú giúp bạn bảo vệ thông tin bằng thời gian và giá coin.</p>
-    <p>💵 Phí: 0.5 USDT/ngày</p>
-    <p>📌 Dùng mã hóa AES-CBC + SHA256, chỉ lưu trữ client-side.</p>
-    <p>🚫 Không mã hóa passphrase/seed/private key.</p>
-  </section>
-
-  <!-- Giải mã -->
-  <section id="decryptTab" class="tab-content">
-    <div class="connect-section">
-      <button id="connectButtonDecrypt" onclick="connectWallet()">Connect Wallet</button>
-      <p id="walletStatusDecrypt">Trạng thái: Chưa kết nối</p>
-      <p id="connectErrorDecrypt"></p>
-    </div>
-    <label>📥 Nhập mã đã mã hóa:</label>
-    <textarea id="decryptionInput" placeholder="📥 Dán mã đã mã hóa..." rows="7"></textarea>
-    <button id="decryptButton" onclick="decrypt()">🔓 Giải mã</button>
-    <div id="decryptedResult" class="output-block"></div>
-    <button onclick="copyDecrypted()">📋 Copy</button>
-    <div id="loadingIndicator" style="display: none; text-align: center; padding: 10px;">
-      <div class="spinner"></div>
-      <p>Đang giải mã... Vui lòng chờ giây lát ⏳</p>
-    </div>
-  </section>
-
-  <div id="paymentOverlay">
-    <div class="payment-box">
-      <button class="close-btn" onclick="closePaymentPopup()">X</button>
-      <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.png" class="logo" />
-      <div class="qr" id="qrCodeContainer"><img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=0xcE6320183252CD965a70D4a9B6F30D2877a2188E" /></div>
-      <div class="wallet" onclick="copyWallet()"><strong>0xcE6320183252CD965a70D4a9B6F30D2877a2188E</strong></div>
-      <button class="copy-btn" onclick="copyWallet()">📋</button>
-      <div class="payment-amount">Amount: <strong id="paymentAmount">0.5 USDT</strong></div>
-      <div>Network: BNB Smartchain</div>
-      <div class="countdown" id="countdown">Còn 15 phút 0 giây</div>
-      <div class="spinner"></div>
-      <div>⏳ Đang chờ thanh toán...</div>
-      <div id="paymentStatus" class="payment-status"></div>
+  <!-- Proof Modal -->
+  <div id="proof-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><i class="fas fa-eye"></i> Bằng chứng xác thực</h3>
+        <button class="modal-close" onclick="closeProofModal()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div id="proof-content"></div>
+      </div>
     </div>
   </div>
 
-  <script>
-    let web3Modal = null;
-    let walletProvider = null;
-
-    function switchTab(tabId) {
-      document.querySelectorAll('.tab-content').forEach(s => s.classList.remove('active'));
-      document.querySelectorAll('.tab-button').forEach(t => t.classList.remove('active'));
-      document.getElementById(tabId).classList.add('active');
-      document.querySelector(`.tab-button[onclick="switchTab('${tabId}')"]`).classList.add('active');
-    }
-
-    function closePaymentPopup() {
-      document.getElementById("paymentOverlay").style.display = "none";
-    }
-
-    function copyWallet() {
-      navigator.clipboard.writeText("0xcE6320183252CD965a70D4a9B6F30D2877a2188E").then(() => alert("✅ Đã sao chép địa chỉ ví!"));
-    }
-
-    async function connectWallet() {
-      try {
-        if (!web3Modal) {
-          web3Modal = new Web3Modal.default({
-            network: 'binanceSmartChain', // Sử dụng BNB chain
-            cacheProvider: true,
-            providerOptions: {
-              walletconnect: {
-                package: window.WalletConnectProvider, // Sử dụng WalletConnect v2
-                options: {
-                  projectId: "adab2be34c8c272ee1a99db63aad6119", // Project ID từ WalletConnect
-                  chains: [56], // BNB Mainnet chain ID
-                  showQrModal: true,
-                  rpc: {
-                    56: "https://bsc-dataseed.binance.org/" // RPC cho BNB chain
-                  }
-                }
-              },
-              'custom-metamask': {
-                display: {
-                  logo: 'https://metamask.io/images/mm-logo.png',
-                  name: 'MetaMask',
-                  description: 'Connect with MetaMask'
-                },
-                package: null,
-                connector: async () => {
-                  const provider = new ethers.providers.Web3Provider(window.ethereum);
-                  await provider.send("eth_requestAccounts", []);
-                  return provider;
-                }
-              },
-              'custom-trust': {
-                display: {
-                  logo: 'https://trustwallet.com/assets/images/icons/icon-256x256.png',
-                  name: 'Trust Wallet',
-                  description: 'Connect with Trust Wallet'
-                },
-                package: null,
-                connector: async () => {
-                  const provider = new ethers.providers.Web3Provider(window.ethereum);
-                  await provider.send("eth_requestAccounts", []);
-                  return provider;
-                }
-              },
-              'custom-coinbase': {
-                display: {
-                  logo: 'https://coinbase.com/assets/coinbase-logo.png',
-                  name: 'Coinbase Wallet',
-                  description: 'Connect with Coinbase Wallet'
-                },
-                package: null,
-                connector: async () => {
-                  const provider = new ethers.providers.Web3Provider(window.ethereum);
-                  await provider.send("eth_requestAccounts", []);
-                  return provider;
-                }
-              }
-            }
-          });
-        }
-
-        const provider = await web3Modal.connect();
-        walletProvider = new ethers.providers.Web3Provider(provider);
-        const accounts = await walletProvider.listAccounts();
-        document.getElementById("walletStatus").textContent = `Trạng thái: Đã kết nối (${accounts[0].substring(0, 6)}...${accounts[0].substring(accounts[0].length - 4)})`;
-        document.getElementById("walletStatusDecrypt").textContent = `Trạng thái: Đã kết nối (${accounts[0].substring(0, 6)}...${accounts[0].substring(accounts[0].length - 4)})`;
-        document.getElementById("connectButton").disabled = true;
-        document.getElementById("connectButtonDecrypt").disabled = true;
-      } catch (error) {
-        console.error("Lỗi kết nối ví:", error);
-        document.getElementById("connectError").style.display = "block";
-        document.getElementById("connectError").textContent = `Lỗi: ${error.message}. Đảm bảo ví được cài đặt và mạng BNB được chọn.`;
-        document.getElementById("connectErrorDecrypt").style.display = "block";
-        document.getElementById("connectErrorDecrypt").textContent = `Lỗi: ${error.message}. Đảm bảo ví được cài đặt và mạng BNB được chọn.`;
-      }
-    }
-
-    function validateBeforeEncrypt() {
-      const note = document.getElementById("noteInput").value.trim();
-      const coin = document.getElementById("coinInput").value.trim().toUpperCase();
-      const price = document.getElementById("targetPrice").value.trim();
-      const unlockTime = document.getElementById("unlockTime").value;
-      if (!note || !coin || !price || !unlockTime) {
-        alert("Vui lòng nhập đầy đủ thông tin!");
-        return;
-      }
-      if (!allCoins.includes(coin)) {
-        alert("Mã coin/forex không hợp lệ!");
-        return;
-      }
-      const now = new Date();
-      if (new Date(unlockTime) <= now) {
-        alert("Thời gian mở khóa phải lớn hơn hiện tại!");
-        return;
-      }
-      if (!walletProvider) {
-        alert("Vui lòng kết nối ví trước khi mã hóa!");
-        return;
-      }
-      encrypt();
-    }
-
-    function copyEncrypted() {
-      const text = document.getElementById("encryptedOutput").value;
-      navigator.clipboard.writeText(text).then(() => alert("✅ Đã sao chép mã hóa!"));
-    }
-
-    function copyDecrypted() {
-      const noteContent = document.querySelector('.note-content');
-      if (noteContent) {
-        navigator.clipboard.writeText(noteContent.innerText).then(() => alert("✅ Đã sao chép!"));
-      }
-    }
-  </script>
+  <!-- Security Question Modal -->
+  <div id="security-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><i class="fas fa-question-circle"></i> Xác thực bảo mật</h3>
+        <button class="modal-close" onclick="closeSecurityModal()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="security-question-form">
+          <label class="input-label">Câu hỏi bảo mật:</label>
+          <p id="security-question-display" class="security-question"></p>
+          <input 
+            type="text" 
+            id="security-answer-input" 
+            placeholder="Nhập đáp án..."
+            class="input-field"
+          >
+          <button class="primary-btn" onclick="submitSecurityAnswer()">
+            <i class="fas fa-check"></i>
+            Xác nhận
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="script.js"></script>
 </body>
